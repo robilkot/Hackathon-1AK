@@ -2,29 +2,42 @@ import cv2
 import numpy as np
 import urllib.request
 import time
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DEFAULT_PHONE_IP = "192.168.1.46"
+DEFAULT_PORT = 8080
 
 
 class IPCamera:
     def __init__(self, ip_address=None, port=None):
-        from config import PHONE_IP, PORT
-
-        self.ip_address = ip_address or PHONE_IP
-        self.port = port or PORT
+        self.ip_address = ip_address or os.getenv("PHONE_IP", DEFAULT_PHONE_IP)
+        self.port = port or int(os.getenv("PORT", DEFAULT_PORT))
         self.base_url = f"http://{self.ip_address}:{self.port}"
         self.video_cap = None
         self.is_connected = False
 
-    def connect(self):
+    def connect(self, max_retries=3):
         if not self.is_connected:
             video_url = f"{self.base_url}/video"
-            self.video_cap = cv2.VideoCapture(video_url)
 
-            if not self.video_cap.isOpened():
-                raise ConnectionError(f"Failed to connect to IP Webcam at {video_url}")
+            retry_count = 0
+            while retry_count < max_retries:
+                self.video_cap = cv2.VideoCapture(video_url)
 
-            self.is_connected = True
-            return True
-        return False
+                if self.video_cap.isOpened():
+                    self.is_connected = True
+                    return True
+
+                print(f"Failed to connect to IP Webcam at {video_url}. Retrying in 10 seconds...")
+                time.sleep(10)
+                retry_count += 1
+
+            print(f"Could not connect to camera after {max_retries} attempts")
+            return False
+        return True
 
     def disconnect(self):
         if self.is_connected and self.video_cap:
@@ -35,28 +48,39 @@ class IPCamera:
 
     def get_frame(self):
         if not self.is_connected:
-            self.connect()
+            if not self.connect():
+                return None
 
         ret, frame = self.video_cap.read()
         if ret:
             return frame
+
+        # Connection lost, attempt to reconnect
+        self.is_connected = False
         return None
 
     def get_jpeg_frame(self):
         shot_url = f"{self.base_url}/shot.jpg"
-        img_resp = urllib.request.urlopen(shot_url)
-        img_np = np.array(bytearray(img_resp.read()), dtype=np.uint8)
-        frame = cv2.imdecode(img_np, -1)
-        return frame
+        try:
+            img_resp = urllib.request.urlopen(shot_url)
+            img_np = np.array(bytearray(img_resp.read()), dtype=np.uint8)
+            frame = cv2.imdecode(img_np, -1)
+            return frame
+        except Exception:
+            print(f"Failed to get JPEG frame from {shot_url}. Retrying in 10 seconds...")
+            time.sleep(10)
+            return None
 
     def capture_frames(self, num_frames=30, fps=30, use_stream=True):
         frames = []
         delay = 1.0 / fps
 
         if use_stream and not self.is_connected:
-            self.connect()
+            if not self.connect():
+                return frames
 
-        for _ in range(num_frames):
+        frames_collected = 0
+        while frames_collected < num_frames:
             start_time = time.time()
 
             if use_stream:
@@ -66,6 +90,13 @@ class IPCamera:
 
             if frame is not None:
                 frames.append(frame)
+                frames_collected += 1
+            else:
+                print("Failed to get frame, retrying in 10 seconds...")
+                time.sleep(10)
+                if use_stream:
+                    self.connect()
+                continue
 
             processing_time = time.time() - start_time
             if processing_time < delay:
@@ -74,19 +105,30 @@ class IPCamera:
         return frames
 
 
-def get_video_stream(ip_address=None, port=None):
-    from config import PHONE_IP, PORT
-    ip_address = ip_address or PHONE_IP
-    port = port or PORT
+def get_video_stream(ip_address=None, port=None, max_retries=3):
+    ip_address = ip_address or os.getenv("PHONE_IP", DEFAULT_PHONE_IP)
+    port = port or int(os.getenv("PORT", DEFAULT_PORT))
     base_url = f"http://{ip_address}:{port}"
     video_url = f"{base_url}/video"
-    cap = cv2.VideoCapture(video_url)
-    if not cap.isOpened():
-        raise ConnectionError(f"Failed to connect to IP Webcam at {video_url}")
-    return cap
+
+    retry_count = 0
+    while retry_count < max_retries:
+        cap = cv2.VideoCapture(video_url)
+        if cap.isOpened():
+            return cap
+
+        print(f"Failed to connect to IP Webcam at {video_url}. Retrying in 10 seconds...")
+        time.sleep(10)
+        retry_count += 1
+
+    print(f"Could not connect to camera after {max_retries} attempts")
+    return None
 
 
 def get_frame(cap):
+    if cap is None:
+        return None
+
     ret, frame = cap.read()
     if ret:
         return frame
@@ -94,29 +136,34 @@ def get_frame(cap):
 
 
 def get_jpeg_frame(ip_address=None, port=None):
-    from config import PHONE_IP, PORT
-    ip_address = ip_address or PHONE_IP
-    port = port or PORT
+    ip_address = ip_address or os.getenv("PHONE_IP", DEFAULT_PHONE_IP)
+    port = port or int(os.getenv("PORT", DEFAULT_PORT))
     base_url = f"http://{ip_address}:{port}"
     shot_url = f"{base_url}/shot.jpg"
-    img_resp = urllib.request.urlopen(shot_url)
-    img_np = np.array(bytearray(img_resp.read()), dtype=np.uint8)
-    frame = cv2.imdecode(img_np, -1)
-    return frame
+
+    try:
+        img_resp = urllib.request.urlopen(shot_url)
+        img_np = np.array(bytearray(img_resp.read()), dtype=np.uint8)
+        frame = cv2.imdecode(img_np, -1)
+        return frame
+    except Exception:
+        print(f"Failed to get JPEG frame from {shot_url}. Retrying in 10 seconds...")
+        time.sleep(10)
+        return None
 
 
-if __name__ == "__main__":
+def run_demo():
     print("Demo: IPCamera class")
     camera = IPCamera()
 
     print("Getting frames using class methods...")
-    camera.connect()
-    for i in range(5):
-        frame = camera.get_frame()
-        if frame is not None:
-            cv2.imshow(f'Class Frame {i}', frame)
-            cv2.waitKey(33)
-    camera.disconnect()
+    if camera.connect():
+        for i in range(5):
+            frame = camera.get_frame()
+            if frame is not None:
+                cv2.imshow(f'Class Frame {i}', frame)
+                cv2.waitKey(33)
+        camera.disconnect()
 
     print("Getting batch of frames...")
     frames = camera.capture_frames(num_frames=3, fps=10)
@@ -128,12 +175,13 @@ if __name__ == "__main__":
 
     print("Using get_video_stream() and get_frame()...")
     cap = get_video_stream()
-    for i in range(3):
-        frame = get_frame(cap)
-        if frame is not None:
-            cv2.imshow(f'Legacy Stream Frame {i}', frame)
-            cv2.waitKey(33)
-    cap.release()
+    if cap is not None:
+        for i in range(3):
+            frame = get_frame(cap)
+            if frame is not None:
+                cv2.imshow(f'Legacy Stream Frame {i}', frame)
+                cv2.waitKey(33)
+        cap.release()
 
     print("Using get_jpeg_frame()...")
     for i in range(3):
@@ -146,3 +194,7 @@ if __name__ == "__main__":
     print("Demo complete. Press any key to close windows.")
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    run_demo()
