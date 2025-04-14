@@ -5,13 +5,15 @@ import time
 import os
 from dotenv import load_dotenv
 
+from CameraInterface import CameraInterface
+
 load_dotenv()
 
 DEFAULT_PHONE_IP = "192.168.1.46"
 DEFAULT_PORT = 8080
 
 
-class IPCamera:
+class IPCamera(CameraInterface):
     def __init__(self, ip_address=None, port=None):
         self.ip_address = ip_address or os.getenv("PHONE_IP", DEFAULT_PHONE_IP)
         self.port = port or int(os.getenv("PORT", DEFAULT_PORT))
@@ -55,54 +57,8 @@ class IPCamera:
         if ret:
             return frame
 
-        # Connection lost, attempt to reconnect
         self.is_connected = False
         return None
-
-    def get_jpeg_frame(self):
-        shot_url = f"{self.base_url}/shot.jpg"
-        try:
-            img_resp = urllib.request.urlopen(shot_url)
-            img_np = np.array(bytearray(img_resp.read()), dtype=np.uint8)
-            frame = cv2.imdecode(img_np, -1)
-            return frame
-        except Exception:
-            print(f"Failed to get JPEG frame from {shot_url}. Retrying in 10 seconds...")
-            time.sleep(10)
-            return None
-
-    def capture_frames(self, num_frames=30, fps=30, use_stream=True):
-        frames = []
-        delay = 1.0 / fps
-
-        if use_stream and not self.is_connected:
-            if not self.connect():
-                return frames
-
-        frames_collected = 0
-        while frames_collected < num_frames:
-            start_time = time.time()
-
-            if use_stream:
-                frame = self.get_frame()
-            else:
-                frame = self.get_jpeg_frame()
-
-            if frame is not None:
-                frames.append(frame)
-                frames_collected += 1
-            else:
-                print("Failed to get frame, retrying in 10 seconds...")
-                time.sleep(10)
-                if use_stream:
-                    self.connect()
-                continue
-
-            processing_time = time.time() - start_time
-            if processing_time < delay:
-                time.sleep(delay - processing_time)
-
-        return frames
 
 
 def get_video_stream(ip_address=None, port=None, max_retries=3):
@@ -164,12 +120,6 @@ def run_demo():
                 cv2.imshow(f'Class Frame {i}', frame)
                 cv2.waitKey(33)
         camera.disconnect()
-
-    print("Getting batch of frames...")
-    frames = camera.capture_frames(num_frames=3, fps=10)
-    for i, frame in enumerate(frames):
-        cv2.imshow(f'Batch Frame {i}', frame)
-        cv2.waitKey(500)
 
     print("\nDemo: Legacy functions")
 
