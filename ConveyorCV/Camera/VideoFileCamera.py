@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class VideoFileCamera(CameraInterface):
-    def __init__(self, video_path=None, fps=None):
+    def __init__(self, video_path=None, fps=None, start_frame=None, start_time=None):
         self.video_path = video_path or os.getenv("VIDEO_PATH", "default_video.mp4")
         self.video_cap = None
         self.is_connected = False
@@ -16,6 +16,8 @@ class VideoFileCamera(CameraInterface):
         self._frame_duration = None
         self._total_frames = 0
         self._current_frame = 0
+        self._start_frame = start_frame
+        self._start_time = start_time
 
     def connect(self, max_retries=3):
         if not self.is_connected:
@@ -31,6 +33,15 @@ class VideoFileCamera(CameraInterface):
                         self._video_fps = self.video_cap.get(cv2.CAP_PROP_FPS)
 
                     self._frame_duration = 1.0 / self._video_fps
+
+                    if self._start_frame is not None:
+                        self._current_frame = min(self._start_frame, self._total_frames - 1)
+                        self.video_cap.set(cv2.CAP_PROP_POS_FRAMES, self._current_frame)
+                    elif self._start_time is not None:
+                        frame_number = int(self._start_time * self._video_fps)
+                        self._current_frame = min(frame_number, self._total_frames - 1)
+                        self.video_cap.set(cv2.CAP_PROP_POS_FRAMES, self._current_frame)
+
                     self._last_frame_time = time.time()
                     return True
 
@@ -80,6 +91,11 @@ class VideoFileCamera(CameraInterface):
 
 
 def demo_video_file_camera():
+    # Start from frame 100
+    #video_camera = VideoFileCamera(start_frame=100)
+
+    # Or start from 30 seconds into the video
+    #video_camera = VideoFileCamera(start_time=30.0)
     video_camera = VideoFileCamera()
 
     if video_camera.connect():
