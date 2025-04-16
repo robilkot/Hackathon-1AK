@@ -1,3 +1,5 @@
+import time
+
 import cv2
 
 class ContourDetector:
@@ -12,6 +14,13 @@ class ContourDetector:
         while True:
             try:
                 image = cam.get_frame()
+                if image is None:
+                    continue
+
+                down_width = 1280
+                down_height = 720
+                down_points = (down_width, down_height)
+                image = cv2.resize(image, down_points, interpolation=cv2.INTER_LINEAR)
 
                 # Apply background subtraction
                 fg_mask = back_sub.apply(image)
