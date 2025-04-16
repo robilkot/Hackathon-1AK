@@ -1,3 +1,7 @@
+import queue
+import threading
+from threading import Thread
+
 import cv2
 import numpy as np
 import urllib.request
@@ -5,7 +9,7 @@ import time
 import os
 from dotenv import load_dotenv
 
-from ConveyorCV.Camera.CameraInterface import CameraInterface
+from Camera.CameraInterface import CameraInterface
 
 load_dotenv()
 
@@ -20,6 +24,10 @@ class IPCamera(CameraInterface):
         self.base_url = f"http://{self.ip_address}:{self.port}"
         self.video_cap = None
         self.is_connected = False
+        self.lock = threading.Lock()
+        self.t = threading.Thread(target=self._reader)
+        self.t.daemon = True
+        self.t.start()
 
     def connect(self, max_retries=3):
         if not self.is_connected:
@@ -28,6 +36,7 @@ class IPCamera(CameraInterface):
             retry_count = 0
             while retry_count < max_retries:
                 self.video_cap = cv2.VideoCapture(video_url)
+                self.video_cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
 
                 if self.video_cap.isOpened():
                     self.is_connected = True
@@ -49,16 +58,21 @@ class IPCamera(CameraInterface):
         return False
 
     def get_frame(self):
-        if not self.is_connected:
-            if not self.connect():
-                return None
+        with self.lock:
+            _, frame = self.video_cap.retrieve()
+        return frame
 
-        ret, frame = self.video_cap.read()
-        if ret:
-            return frame
+    # grab frames as soon as they are available
+    def _reader(self):
+        while True:
+            if not self.is_connected:
+                if not self.connect():
+                    continue
 
-        self.is_connected = False
-        return None
+            with self.lock:
+                ret = self.video_cap.grab()
+            if not ret:
+                break
 
 
 def get_video_stream(ip_address=None, port=None, max_retries=3):

@@ -1,8 +1,9 @@
 import cv2
 import time
 import os
-from ConveyorCV.Camera.CameraInterface import CameraInterface
 from dotenv import load_dotenv
+
+from Camera.CameraInterface import CameraInterface
 
 load_dotenv()
 
