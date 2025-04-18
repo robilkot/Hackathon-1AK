@@ -1,15 +1,25 @@
-import time
-
 import cv2
+import numpy as np
 
+
+def downscale(img, width, height):
+    down_points = (width, height)
+    return cv2.resize(img, down_points, interpolation=cv2.INTER_LINEAR)
+
+
+# todo: бенчмарк, надо реалтайм (20 фпс хотя бы, 30 - идеал)
 class ContourDetector:
     @staticmethod
     def draw_contours(cam):
-
         cam.connect()
 
-        # Create Background Subtractor MOG2 object
-        back_sub = cv2.createBackgroundSubtractorMOG2()
+        width, height = 1280, 720
+
+        # todo: четко определить размер ядра
+        kernel = np.ones((12, 12), np.uint8)
+        image_conveyor_empty = cv2.imread('data/frame_empty.png')
+        image_conveyor_empty = downscale(image_conveyor_empty, width, height)
+        image_conveyor_empty = cv2.morphologyEx(image_conveyor_empty, cv2.MORPH_CLOSE, kernel, iterations=3)
 
         while True:
             try:
@@ -17,41 +27,30 @@ class ContourDetector:
                 if image is None:
                     continue
 
-                down_width = 1280
-                down_height = 720
-                down_points = (down_width, down_height)
-                image = cv2.resize(image, down_points, interpolation=cv2.INTER_LINEAR)
+                image = downscale(image, width, height)
+                image_source = image.copy()
 
-                # Apply background subtraction
-                fg_mask = back_sub.apply(image)
+                image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel, iterations=3)
 
-                # apply global threshold to remove shadows
-                retval, mask_thresh = cv2.threshold(fg_mask, 180, 255, cv2.THRESH_BINARY)
+                image_diff = cv2.absdiff(image, image_conveyor_empty)
+                image_gray = cv2.cvtColor(image_diff, cv2.COLOR_BGR2GRAY)
 
-                        # set the kernel
-                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-                        # Apply erosion
-                mask_eroded = cv2.morphologyEx(mask_thresh, cv2.MORPH_OPEN, kernel)
+                # todo: четко определить порог
+                _, image_thresh = cv2.threshold(image_gray, 50, 255, cv2.THRESH_BINARY)
+                image_eroded = cv2.erode(image_thresh, None, iterations=7)
+                image_dilated = cv2.dilate(image_eroded, None, iterations=7)
 
-                    # Find contours
-                contours, hierarchy = cv2.findContours(mask_eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # todo: четко определить размер ядра
+                image_dilated_kernel = np.ones((15, 15), np.uint8)
+                image_dilated = cv2.morphologyEx(image_dilated, cv2.MORPH_CLOSE, image_dilated_kernel, iterations=7)
 
-                min_contour_area = 10000  # Define your minimum area threshold
-                large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > min_contour_area]
-                frame_out = image.copy()
+                display = cv2.addWeighted(cv2.cvtColor(image_dilated, cv2.COLOR_GRAY2RGB), 0.7, image_source, 1, 0)
+                cv2.imshow('result', display)
 
-                for cnt in large_contours:
-                    x, y, w, h = cv2.boundingRect(cnt)
-                    frame_out = cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 200), 3)
-
-                cv2.imshow("final", frame_out)
-
-                #Press Q on keyboard to exit
                 if cv2.waitKey(5) & 0xFF == ord("q"):
                     break
 
             except Exception as e:
                 print("Exception: ", e)
 
-        # Closes all the frames
         cv2.destroyAllWindows()
