@@ -9,10 +9,14 @@ def downscale(img, width, height):
     down_points = (width, height)
     return cv2.resize(img, down_points, interpolation=cv2.INTER_LINEAR)
 
+def save(final):
+    filename = OUT_CAPTURES_NAME
+    filename = filename.format(when=datetime.datetime.now())
+    im = Image.fromarray(final)
+    im.save(OUT_CAPTURES_PATH + filename, format='png')
 
 # todo: бенчмарк, надо реалтайм (20 фпс хотя бы, 30 - идеал)
 class ContourDetector:
-
 
     def order_points(self, pts):
         '''Rearrange coordinates to order:
@@ -44,10 +48,24 @@ class ContourDetector:
         heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
         heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
         maxHeight = max(int(heightA), int(heightB))
+
         # Final destination co-ordinates.
         destination_corners = [[0, 0], [maxWidth, 0], [maxWidth, maxHeight], [0, maxHeight]]
 
         return self.order_points(destination_corners)
+
+    def cut_out_contour_evened_out(self, image, corners):
+        # Sorting the corners and converting them to desired shape.
+        corners = sorted(np.concatenate(corners).tolist())
+        # For 4 corner points being detected.
+        corners = self.order_points(corners)
+        destination_corners = self.find_dest(corners)
+        h, w = image.shape[:2]
+        # Getting the homography.
+        M = cv2.getPerspectiveTransform(np.float32(corners), np.float32(destination_corners))
+        # Perspective transform using homography.
+        return cv2.warpPerspective(image, M, (destination_corners[2][0], destination_corners[2][1]),
+                                   flags=cv2.INTER_LINEAR)
 
     def draw_contours(self, cam):
         cam.connect()
@@ -89,7 +107,7 @@ class ContourDetector:
 
                 # Finding contours for the detected edges.
                 contours, hierarchy = cv2.findContours(image_dilated, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-                display = cv2.addWeighted(cv2.cvtColor(image_dilated, cv2.COLOR_GRAY2RGB), 0.7, image_source, 1, 0)
+                #display = cv2.addWeighted(cv2.cvtColor(image_dilated, cv2.COLOR_GRAY2RGB), 0.7, image_source, 1, 0)
 
                 for c in contours:
                     epsilon = 0.05 * cv2.arcLength(c, True)
@@ -101,34 +119,13 @@ class ContourDetector:
                     if bool_fits:
                         bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (840, 360), False) > 0)
                     if bool_fits:
+                        image_contour = self.cut_out_contour_evened_out(image_source, corners)
+                        cv2.imshow('contour', image_contour)
 
-                        #cv2.drawContours(display, c, -1, (0, 0, 255), 5)
-                        #cv2.drawContours(display, corners, -1, (255, 0, 255), 5)
+                        cv2.drawContours(image_source, c, -1, (0, 0, 255), 5)
+                        cv2.drawContours(image_source, corners, -1, (255, 0, 255), 5)
 
-                        if i == 1000:
-                            i = 1
-
-                        filename = OUT_CAPTURES_NAME
-                        filename = filename.format(when=datetime.datetime.now(), n=i)
-                        i = i + 1
-
-                        # Sorting the corners and converting them to desired shape.
-                        corners = sorted(np.concatenate(corners).tolist())
-                        # For 4 corner points being detected.
-                        corners = self.order_points(corners)
-
-                        destination_corners = self.find_dest(corners)
-                        h, w = display.shape[:2]
-                        # Getting the homography.
-                        M = cv2.getPerspectiveTransform(np.float32(corners), np.float32(destination_corners))
-                        # Perspective transform using homography.
-                        final = cv2.warpPerspective(image_source, M, (destination_corners[2][0], destination_corners[2][1]),
-                                                    flags=cv2.INTER_LINEAR)
-
-                        im = Image.fromarray(final)
-                        im.save(OUT_CAPTURES_PATH + filename, format='png')
-
-                #cv2.imshow('result', image_source)
+                cv2.imshow('result', image_source)
 
                 if cv2.waitKey(5) & 0xFF == ord("q"):
                     break
