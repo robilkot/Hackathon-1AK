@@ -5,12 +5,12 @@ import cv2
 
 from Camera.CameraInterface import CameraInterface
 from Camera.VideoFileCamera import VideoFileCamera
-from algorithms.ShapeDetector import ShapeDetector
-from algorithms.ShapeProcessor import ShapeProcessor
-from algorithms.StickerValidator import StickerValidator
-from model.model import DetectionContext, ValidationParams
-from utils.downscale import downscale
-from utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
+from ConveyorCV.algorithms.ShapeDetector import ShapeDetector
+from ConveyorCV.algorithms.ShapeProcessor import ShapeProcessor
+from ConveyorCV.algorithms.StickerValidator import StickerValidator
+from ConveyorCV.model.model import DetectionContext, ValidationParams
+from ConveyorCV.utils.downscale import downscale
+from ConveyorCV.utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
 
 
 # frames -> BW masks of prop
@@ -103,7 +103,7 @@ class DisplayerProcess(multiprocessing.Process):
 
 
 if __name__ == '__main__':
-    sticker_validator_params = ValidationParams(cv2.imread('data/sticker_fixed.png'))
+    sticker_validator_params = ValidationParams(cv2.imread('ConveyorCV/data/sticker_fixed.png'))
 
     shape_queue = multiprocessing.Queue()
     processed_shape_queue = multiprocessing.Queue()

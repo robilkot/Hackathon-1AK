@@ -52,6 +52,7 @@ class ShapeProcessor:
     def process(self, context: DetectionContext) -> DetectionContext:
         image_source = context.image
         shape = context.shape
+        (y, x, Null) = context.image.shape
         contours, hierarchy = cv2.findContours(shape, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
         for c in contours:
@@ -60,9 +61,9 @@ class ShapeProcessor:
 
             bool_fits = True
             if bool_fits:
-                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (440, 360), False) > 0)
+                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (0.35*x, 0.5*y), False) > 0)
             if bool_fits:
-                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (840, 360), False) > 0)
+                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (0.65*x, 0.5*y), False) > 0)
             if bool_fits:
                 processed_image = self.__cut_out_contour_evened_out(image_source, corners)
                 context.processed_image = processed_image
