@@ -1,0 +1,7 @@
+from os import getenv
+
+PHONE_IP=getenv("PHONE_IP")
+VIDEO_PATH=getenv("VIDEO_PATH")
+BG_PHOTO_PATH=getenv("BG_PHOTO_PATH")
+OUT_CAPTURES_NAME=getenv("OUT_CAPTURES_NAME")
+OUT_CAPTURES_PATH=getenv("OUT_CAPTURES_PATH")
