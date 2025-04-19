@@ -9,6 +9,8 @@ from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
 from model.model import DetectionContext, ValidationParams
+from utils.downscale import downscale
+from utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
 
 
 # frames -> BW masks of prop
@@ -27,7 +29,7 @@ class ShapeDetectorProcess(multiprocessing.Process):
                 image = self.__cam.get_frame()
                 if image is None:
                     continue
-
+                image = downscale(image, DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT)
                 context = DetectionContext(image=image)
                 context = self.__detector.detect(context)
                 self.__shape_queue.put(context)
