@@ -5,12 +5,12 @@ import cv2
 
 from Camera.CameraInterface import CameraInterface
 from Camera.VideoFileCamera import VideoFileCamera
-from ConveyorCV.algorithms.ShapeDetector import ShapeDetector
-from ConveyorCV.algorithms.ShapeProcessor import ShapeProcessor
-from ConveyorCV.algorithms.StickerValidator import StickerValidator
-from ConveyorCV.model.model import DetectionContext, ValidationParams
-from ConveyorCV.utils.downscale import downscale
-from ConveyorCV.utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
+from algorithms.ShapeDetector import ShapeDetector
+from algorithms.ShapeProcessor import ShapeProcessor
+from algorithms.StickerValidator import StickerValidator
+from model.model import DetectionContext, ValidationParams
+from utils.downscale import downscale
+from utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
 
 
 # frames -> BW masks of prop

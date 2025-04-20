@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import cv2
 import numpy as np
 
@@ -6,7 +8,18 @@ from model.model import DetectionContext
 
 class ShapeProcessor:
     def __init__(self):
-        pass
+        self.objects_processed = 0
+        self.last_detected_at = datetime.now()
+
+    def __on_contour_valid(self, context):
+        now = datetime.now()
+        delta = (now - self.last_detected_at).total_seconds()
+        if delta > 1:
+            self.objects_processed = self.objects_processed + 1
+        self.last_detected_at = now
+
+        context.seq_number  = self.objects_processed
+        context.detected_at = self.last_detected_at
 
     def __order_points(self, pts):
         rect = np.zeros((4, 2), dtype='float32')
@@ -67,6 +80,7 @@ class ShapeProcessor:
             if bool_fits:
                 processed_image = self.__cut_out_contour_evened_out(image_source, corners)
                 context.processed_image = processed_image
+                self.__on_contour_valid(context)
                 break
 
         return context
