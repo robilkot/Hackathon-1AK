@@ -10,7 +10,7 @@ class ShapeProcessor:
     def __init__(self):
         self.objects_processed = 0
         self.last_contour_center_x = 0
-        #self.last_detected_at = datetime.now()
+        self.last_detected_at = datetime.now()
 
     def __on_contour_valid(self, context, contour):
         now = datetime.now()
@@ -29,7 +29,7 @@ class ShapeProcessor:
         self.last_contour_center_x = cx
         self.last_detected_at = now
 
-        context.center = cx
+        #gcontext.center_x = cx
         context.seq_number  = self.objects_processed
         context.detected_at = self.last_detected_at
 
