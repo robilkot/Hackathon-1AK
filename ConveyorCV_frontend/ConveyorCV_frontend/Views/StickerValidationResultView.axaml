@@ -1,0 +1,90 @@
+<UserControl
+	xmlns="https://github.com/avaloniaui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+	xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
+	xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters;assembly=ConveyorCV_frontend"
+	mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+	x:Class="ConveyorCV_frontend.Views.StickerValidationResultView"
+	x:DataType="vm:StickerValidationResultViewModel">
+	<UserControl.Resources>
+		<converters:BoolToValueConverter
+			x:Key="StickerPresentTextConverter"
+			TrueValue="Наклейка присутствует"
+			FalseValue="Наклейка отсутствует"/>
+		<converters:BoolToValueConverter
+			x:Key="StickerMatchesDesignTextConverter"
+			TrueValue="Макет верный"
+			FalseValue="Макет неверный"/>
+		<converters:BoolToValueConverter
+			x:Key="BoolToColorConverter"
+			TrueValue="Green"
+			FalseValue="Red"/>
+	</UserControl.Resources>
+	<Design.DataContext>
+		<vm:StickerValidationResultViewModel/>
+	</Design.DataContext>
+	
+	<Panel>
+		<Image
+			Source="{Binding Image}">
+		</Image>
+		<StackPanel
+			ZIndex="1"
+			VerticalAlignment="Top"
+			HorizontalAlignment="Left"
+			Orientation="Vertical"
+			Spacing="5">
+			<TextBlock
+				Padding="20, 5"
+				FontSize="20"
+				TextAlignment="Center"
+				Foreground="White"
+				Background="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
+				Text="{Binding StickerPresent, Converter={StaticResource StickerPresentTextConverter}}"/>
+			<TextBlock
+				IsVisible="{Binding StickerMatchesDesign, Converter={x:Static ObjectConverters.IsNotNull}}"
+				Padding="20, 5"
+				FontSize="20"
+				TextAlignment="Center"
+				Foreground="White"
+				Background="{Binding StickerMatchesDesign, Converter={StaticResource BoolToColorConverter}}"
+				Text="{Binding StickerMatchesDesign, Converter={StaticResource StickerMatchesDesignTextConverter}}"/>
+		</StackPanel>
+
+		<Border
+			Grid.Row="1"
+			Grid.Column="1"
+			Width="{Binding StickerSize.Width}"
+			Height="{Binding StickerSize.Height}"
+			BorderThickness="2"
+			BorderBrush="Black"
+			HorizontalAlignment="Center"
+			VerticalAlignment="Center">
+			<Panel>
+				<TextBlock
+					VerticalAlignment="Top"
+					Margin="0 5"
+					HorizontalAlignment="Center"
+					Text="{Binding StickerSize.Width}">
+				</TextBlock>
+
+				<TextBlock
+					HorizontalAlignment="Left"
+					VerticalAlignment="Center"
+					Text="{Binding StickerSize.Height}">
+					<TextBlock.RenderTransform>
+						<RotateTransform
+							Angle="-90"/>
+					</TextBlock.RenderTransform>
+				</TextBlock>
+			</Panel>
+
+			<Border.RenderTransform>
+				<RotateTransform
+					Angle="{Binding Rotation}"/>
+			</Border.RenderTransform>
+		</Border>
+	</Panel>
+</UserControl>

@@ -1,0 +1,78 @@
+<UserControl
+	xmlns="https://github.com/avaloniaui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+	xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
+	mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+	x:Class="ConveyorCV_frontend.Views.StickerParametersView"
+	x:DataType="vm:StickerParametersViewModel">
+	<Design.DataContext>
+		<vm:StickerParametersViewModel/>
+	</Design.DataContext>
+	
+	<Panel>
+		<TextBlock
+			VerticalAlignment="Center"
+			HorizontalAlignment="Center"
+			Text="Макет наклейки на аккумуляторе"/>
+
+		<Border
+			Grid.Row="1"
+			Grid.Column="1"
+			Width="{Binding AccSize.Width}"
+			Height="{Binding AccSize.Height}"
+			BorderThickness="2"
+			BorderBrush="Black"
+			HorizontalAlignment="Center"
+			VerticalAlignment="Center">
+			<Panel>
+				<TextBlock
+					VerticalAlignment="Top"
+					Margin="0 5"
+					HorizontalAlignment="Center"
+					Text="{Binding AccSize.Width}">
+				</TextBlock>
+
+				<TextBlock
+					HorizontalAlignment="Left"
+					VerticalAlignment="Center"
+					Text="{Binding AccSize.Height}">
+					<TextBlock.RenderTransform>
+						<RotateTransform
+							Angle="-90"/>
+					</TextBlock.RenderTransform>
+				</TextBlock>
+			</Panel>
+		</Border>
+
+		<Border
+			Grid.Row="1"
+			Grid.Column="1"
+			Width="{Binding StickerSize.Width}"
+			Height="{Binding StickerSize.Height}"
+			BorderThickness="2"
+			BorderBrush="Black"
+			HorizontalAlignment="Center"
+			VerticalAlignment="Center">
+			<Panel>
+				<TextBlock
+					VerticalAlignment="Top"
+					Margin="0 5"
+					HorizontalAlignment="Center"
+					Text="{Binding StickerSize.Width}">
+				</TextBlock>
+
+				<TextBlock
+					HorizontalAlignment="Left"
+					VerticalAlignment="Center"
+					Text="{Binding StickerSize.Height}">
+					<TextBlock.RenderTransform>
+						<RotateTransform
+							Angle="-90"/>
+					</TextBlock.RenderTransform>
+				</TextBlock>
+			</Panel>
+		</Border>
+	</Panel>
+</UserControl>

@@ -1,0 +1,63 @@
+<UserControl 
+	xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
+	xmlns:views="clr-namespace:ConveyorCV_frontend.Views"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="ConveyorCV_frontend.Views.MainView"
+    x:DataType="vm:MainViewModel">
+  <Design.DataContext>
+	  <vm:MainViewModel />
+  </Design.DataContext>
+
+	<Panel>
+		<Menu 
+			Margin="2"
+			ZIndex="1"
+			HorizontalAlignment="Left"
+			VerticalAlignment="Top">
+			<MenuItem 
+				Background="DarkGray"
+				Header="Настройки"/>
+			<MenuItem
+				Background="DarkGray"
+				Header="Журнал работы"/>
+		</Menu>
+
+		<Grid
+			RowDefinitions="*, 3, *"
+			Grid.Column="2"
+			Background="Gray">
+
+			<Panel
+				Grid.Row="0">
+				<TextBlock
+					VerticalAlignment="Center"
+					HorizontalAlignment="Center"
+					Text="Изображение с конвейера"/>
+			</Panel>
+			
+			<GridSplitter
+				Grid.Row="1"/>
+
+			<Grid
+				Grid.Row="2"
+				ColumnDefinitions="*, 3, *">
+				
+				<views:StickerParametersView
+					DataContext="{Binding StickerParameters}"
+					Grid.Column="0"/>
+
+				<GridSplitter
+					Grid.Column="1"/>
+
+				<views:StickerValidationResultView
+					DataContext="{Binding ValidationResult}"
+					Grid.Column="2"/>
+			</Grid>
+
+		</Grid>
+	</Panel>
+</UserControl>
