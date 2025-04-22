@@ -9,15 +9,27 @@ from model.model import DetectionContext
 class ShapeProcessor:
     def __init__(self):
         self.objects_processed = 0
-        self.last_detected_at = datetime.now()
+        self.last_contour_center_x = 0
+        #self.last_detected_at = datetime.now()
 
-    def __on_contour_valid(self, context):
+    def __on_contour_valid(self, context, contour):
         now = datetime.now()
-        delta = (now - self.last_detected_at).total_seconds()
-        if delta > 1:
+        M = cv2.moments(contour)
+        if M['m00'] != 0:
+            cx = int(M['m10'] / M['m00'])
+#            cy = int(M['m01'] / M['m00'])
+        else:
+            cx = 0
+#            cy = 0
+
+
+        if self.last_contour_center_x < cx:
             self.objects_processed = self.objects_processed + 1
+
+        self.last_contour_center_x = cx
         self.last_detected_at = now
 
+        context.center = cx
         context.seq_number  = self.objects_processed
         context.detected_at = self.last_detected_at
 
@@ -74,13 +86,13 @@ class ShapeProcessor:
 
             bool_fits = True
             if bool_fits:
-                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (0.35*x, 0.5*y), False) > 0)
+                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (0.4*x, 0.5*y), False) > 0)
             if bool_fits:
-                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (0.65*x, 0.5*y), False) > 0)
+                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (0.6*x, 0.5*y), False) > 0)
             if bool_fits:
                 processed_image = self.__cut_out_contour_evened_out(image_source, corners)
                 context.processed_image = processed_image
-                self.__on_contour_valid(context)
+                self.__on_contour_valid(context, c)
                 break
 
         return context
