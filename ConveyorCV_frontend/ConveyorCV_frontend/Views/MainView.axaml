@@ -6,13 +6,16 @@
     xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
     xmlns:views="clr-namespace:ConveyorCV_frontend.Views"
     xmlns:global="clr-namespace:"
+    xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="ConveyorCV_frontend.Views.MainView"
     x:DataType="global:MainViewModel">
   <Design.DataContext>
    <global:MainViewModel />
   </Design.DataContext>
-
+ <UserControl.Resources>
+  <converters:HalfSizeConverter x:Key="HalfSizeConverter"/>
+ </UserControl.Resources>
  <Panel>
   <Menu
    Margin="2"
@@ -31,23 +34,18 @@
    RowDefinitions="*, 3, *"
    Grid.Column="2"
    Background="Gray">
-
-   <Grid Grid.Row="0" ColumnDefinitions="*, *">
-     <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Center">
-       <TextBlock FontSize="16" HorizontalAlignment="Center" Margin="0,0,0,10" Text="Изображение с конвейера"/>
-       <Image Width="400" Height="300" Source="{Binding StreamViewModel.RawImage}"/>
-       <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-         <Button Content="Начать трансляцию" Command="{Binding StreamViewModel.StartStreamCommand}" Margin="5,0"/>
-         <Button Content="Остановить трансляцию" Command="{Binding StreamViewModel.StopStreamCommand}" Margin="5,0"/>
-       </StackPanel>
-       <TextBlock HorizontalAlignment="Center" Margin="0,5,0,0" Text="{Binding StreamViewModel.Status}"/>
-     </StackPanel>
-     
-     <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
-       <TextBlock FontSize="16" HorizontalAlignment="Center" Margin="0,0,0,10" Text="Результат анализа"/>
-       <Image Width="400" Height="300" Source="{Binding StreamViewModel.ValidationImage}"/>
-     </StackPanel>
-   </Grid>
+   
+   <StackPanel Grid.Row="0" HorizontalAlignment="Stretch">
+    <Image HorizontalAlignment="Stretch" 
+           Stretch="Uniform"
+           MaxHeight="{Binding $parent[Grid].Bounds.Height, Converter={StaticResource HalfSizeConverter}}"
+           Source="{Binding StreamViewModel.RawImage}"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,1,0,0">
+     <Button Content="Начать трансляцию" Command="{Binding StreamViewModel.StartStreamCommand}" Margin="1,0"/>
+     <Button Content="Остановить трансляцию" Command="{Binding StreamViewModel.StopStreamCommand}" Margin="1,0"/>
+    </StackPanel>
+    <TextBlock HorizontalAlignment="Center" Margin="0,5,0,0" Text="{Binding StreamViewModel.Status}"/>
+   </StackPanel>
 
    <GridSplitter
     Grid.Row="1"/>

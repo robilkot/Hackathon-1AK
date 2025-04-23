@@ -39,6 +39,7 @@
                 Orientation="Vertical"
                 Margin="10"
                 Spacing="5">
+                <!-- Sticker Present/Absent -->
                 <Border
                     Background="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
                     CornerRadius="3"
@@ -50,8 +51,9 @@
                         Text="{Binding StickerPresent, Converter={StaticResource StickerPresentTextConverter}}"/>
                 </Border>
 
+                <!-- Sticker Design Match - only visible when sticker is present -->
                 <Border
-                    IsVisible="{Binding StickerMatchesDesign, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    IsVisible="{Binding StickerPresent}"
                     Background="{Binding StickerMatchesDesign, Converter={StaticResource BoolToColorConverter}}"
                     CornerRadius="3"
                     Padding="5">
