@@ -8,6 +8,9 @@ import numpy as np
 @dataclass
 class ValidationParams:
     sticker_design: np.ndarray
+    center: tuple
+    size: tuple
+    rotation: float
 
 
 # todo: информация о позиционировании наклейки
@@ -16,6 +19,9 @@ class ValidationResults:
     sticker_present: bool
     sticker_matches_design: bool | None
     sticker_position: tuple | None  # todo документировать, доработать
+    sticker_image: np.ndarray | None = None  # Captured sticker image
+    sticker_position: tuple | None = None  # Center position
+    sticker_size: tuple| None = None  # Width and height
 
 
 @dataclass
