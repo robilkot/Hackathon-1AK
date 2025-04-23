@@ -12,7 +12,7 @@ class StreamType(Enum):
     SHAPE = auto()
     PROCESSED = auto()
     VALIDATION = auto()
-
+    EVENTS = auto()
 
 class WebSocketManager:
     def __init__(self):

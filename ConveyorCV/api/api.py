@@ -1,14 +1,18 @@
 import asyncio
 import time
+from pathlib import Path
+import os
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, UploadFile, File, HTTPException
 import cv2
 import threading
 import multiprocessing
 from multiprocessing import Queue
+import json
 
 from websocket_manager import WebSocketManager, StreamType
 from settings import Settings, get_settings, update_settings
+from fastapi.responses import HTMLResponse
 
 from Camera.CameraInterface import CameraInterface
 from Camera.VideoFileCamera import VideoFileCamera
@@ -31,6 +35,9 @@ shape_queue = None
 processed_shape_queue = None
 results_queue = None
 
+# Event queue for sending detection events
+event_queue = Queue()
+
 # Processes
 shape_detector_process = None
 shape_processor_process = None
@@ -38,16 +45,24 @@ sticker_validator_process = None
 
 # Flag to control streaming
 is_streaming = False
+streaming_task = None
+
+# Ensure data directories exist
+UPLOAD_DIR = Path("data/uploads")
+STICKER_DIR = Path("data/stickers")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(STICKER_DIR, exist_ok=True)
 
 
 def initialize_processes(settings: Settings):
-    global shape_queue, processed_shape_queue, results_queue
+    global shape_queue, processed_shape_queue, results_queue, event_queue
     global shape_detector_process, shape_processor_process, sticker_validator_process
 
     # Initialize queues
     shape_queue = multiprocessing.Queue()
     processed_shape_queue = multiprocessing.Queue()
     results_queue = multiprocessing.Queue()
+    event_queue = multiprocessing.Queue()
 
     # Select camera based on settings
     camera: CameraInterface
@@ -70,15 +85,85 @@ def initialize_processes(settings: Settings):
         processed_shape_queue, results_queue, StickerValidator(sticker_validator_params))
 
 
+async def stream_images_async():
+    global is_streaming, shape_queue, processed_shape_queue, results_queue
+
+    while is_streaming:
+        # Process raw frames
+        if not shape_queue.empty():
+            context = shape_queue.get()
+            await manager.broadcast_image(context.image, StreamType.RAW)
+
+            if context.shape is not None:
+                # Convert single-channel to 3-channel for display
+                shape_img = cv2.cvtColor(context.shape, cv2.COLOR_GRAY2BGR)
+                await manager.broadcast_image(shape_img, StreamType.SHAPE)
+
+        # Process detected shapes
+        if not processed_shape_queue.empty():
+            context = processed_shape_queue.get()
+            if context.processed_image is not None:
+                await manager.broadcast_image(context.processed_image, StreamType.PROCESSED)
+
+                # Send object detection event
+                event_data = {
+                    "type": "object_detected",
+                    "timestamp": time.time(),
+                    "seq_number": context.seq_number
+                }
+                if StreamType.EVENTS in manager.active_connections:
+                    for connection in manager.active_connections[StreamType.EVENTS]:
+                        await connection.send_json(event_data)
+
+        # Process validation results
+        if not results_queue.empty():
+            context = results_queue.get()
+            if context.processed_image is not None and context.validation_results is not None:
+                # Draw validation result on the image
+                img_with_result = context.processed_image.copy()
+                result_text = "Valid" if context.validation_results.sticker_matches_design else "Invalid"
+                cv2.putText(img_with_result, result_text, (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (0, 255, 0) if context.validation_results.sticker_matches_design else (0, 0, 255), 2)
+
+                await manager.broadcast_image(img_with_result, StreamType.VALIDATION)
+
+                # Send validation event
+                event_data = {
+                    "type": "validation_result",
+                    "timestamp": time.time(),
+                    "seq_number": context.seq_number,
+                    "sticker_present": context.validation_results.sticker_present,
+                    "sticker_matches_design": context.validation_results.sticker_matches_design
+                }
+                if StreamType.EVENTS in manager.active_connections:
+                    for connection in manager.active_connections[StreamType.EVENTS]:
+                        await connection.send_json(event_data)
+
+        await asyncio.sleep(0.033)  # ~30fps
+
+
 def start_streaming():
     global is_streaming, shape_detector_process, shape_processor_process, sticker_validator_process
 
     if not is_streaming:
+        # Re-initialize processes if needed
+        settings = get_settings()
+        initialize_processes(settings)
+
         shape_detector_process.start()
         shape_processor_process.start()
         sticker_validator_process.start()
         is_streaming = True
-        threading.Thread(target=stream_images, daemon=True).start()
+
+        # Run the streaming loop in a separate thread
+        threading.Thread(target=run_async_loop, daemon=True).start()
+
+
+def run_async_loop():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(stream_images_async())
 
 
 def stop_streaming():
@@ -86,51 +171,18 @@ def stop_streaming():
 
     if is_streaming:
         is_streaming = False
-        shape_detector_process.terminate()
-        shape_processor_process.terminate()
-        sticker_validator_process.terminate()
 
+        # Terminate processes
+        if shape_detector_process and shape_detector_process.is_alive():
+            shape_detector_process.terminate()
+        if shape_processor_process and shape_processor_process.is_alive():
+            shape_processor_process.terminate()
+        if sticker_validator_process and sticker_validator_process.is_alive():
+            sticker_validator_process.terminate()
 
-def stream_images():
-    global is_streaming, shape_queue, processed_shape_queue, results_queue
-
-    while is_streaming:
-        # Try to get from shape_queue for raw shapes
-        if not shape_queue.empty():
-            context = shape_queue.get()
-            if context.image is not None:
-                asyncio.run(manager.broadcast_image(context.image, StreamType.RAW))
-            if context.shape is not None:
-                # Convert BW to BGR for display
-                shape_colored = cv2.cvtColor(context.shape, cv2.COLOR_GRAY2BGR)
-                asyncio.run(manager.broadcast_image(shape_colored, StreamType.SHAPE))
-
-        # Try to get from processed_shape_queue for processed shapes
-        if not processed_shape_queue.empty():
-            context = processed_shape_queue.get()
-            if context.processed_image is not None:
-                asyncio.run(manager.broadcast_image(context.processed_image, StreamType.PROCESSED))
-
-        # Try to get from results_queue for validation results
-        if not results_queue.empty():
-            context = results_queue.get()
-            if context.processed_image is not None:
-                # Draw validation results on the image
-                img_with_results = context.processed_image.copy()
-                if context.validation_results is not None:
-                    # Add text with validation results
-                    text = f"Sticker Present: {context.validation_results.sticker_present}"
-                    cv2.putText(img_with_results, text, (10, 30),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
-                    if context.validation_results.sticker_position is not None:
-                        # Mark the sticker position
-                        point = context.validation_results.sticker_position[0]
-                        cv2.circle(img_with_results, point, 10, (0, 0, 255), -1)
-
-                asyncio.run(manager.broadcast_image(img_with_results, StreamType.VALIDATION))
-
-        time.sleep(0.033)  # ~30fps
+        # Re-initialize for next time
+        settings = get_settings()
+        initialize_processes(settings)
 
 
 @app.on_event("startup")
@@ -184,6 +236,20 @@ async def websocket_validation(websocket: WebSocket):
         manager.disconnect(websocket, StreamType.VALIDATION)
 
 
+@app.websocket("/ws/events")
+async def websocket_events(websocket: WebSocket):
+    """WebSocket endpoint for detection events and notifications"""
+    await websocket.accept()
+    manager.active_connections.setdefault(StreamType.EVENTS, []).append(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # Keep connection alive
+    except WebSocketDisconnect:
+        if StreamType.EVENTS in manager.active_connections:
+            if websocket in manager.active_connections[StreamType.EVENTS]:
+                manager.active_connections[StreamType.EVENTS].remove(websocket)
+
+
 @app.get("/settings", response_model=Settings)
 async def get_current_settings():
     return get_settings()
@@ -217,3 +283,175 @@ async def start_stream():
 async def stop_stream():
     stop_streaming()
     return {"status": "streaming stopped"}
+
+
+@app.post("/upload/sticker")
+async def upload_sticker(file: UploadFile = File(...)):
+    """Upload a new sticker design"""
+    if not file.filename.endswith(('.png', '.jpg', '.jpeg')):
+        raise HTTPException(400, detail="Only PNG and JPG images are allowed")
+
+    # Save the file
+    file_path = STICKER_DIR / file.filename
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    # Update the settings to use the new sticker
+    settings = get_settings()
+    was_streaming = is_streaming
+
+    if was_streaming:
+        stop_streaming()
+
+    settings.sticker_design_path = str(file_path)
+    updated_settings = update_settings(settings)
+
+    # Reinitialize with new sticker
+    initialize_processes(updated_settings)
+
+    if was_streaming:
+        start_streaming()
+
+    return {"status": "success", "file_path": str(file_path)}
+
+
+@app.get("/example", response_class=HTMLResponse)
+def get_example_html():
+    """Return example HTML page for testing the streaming and WebSocket API"""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>ConveyorCV Stream Viewer</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .stream { margin-bottom: 20px; }
+            img { max-width: 100%; border: 1px solid #ccc; }
+            #events { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; }
+            button { margin: 5px; padding: 8px 16px; }
+        </style>
+    </head>
+    <body>
+        <h1>ConveyorCV Stream Viewer</h1>
+        <div>
+            <button id="startBtn">Start Streaming</button>
+            <button id="stopBtn">Stop Streaming</button>
+            <input type="file" id="stickerUpload" accept=".jpg,.jpeg,.png">
+            <button id="uploadBtn">Upload Sticker</button>
+        </div>
+        <div class="grid">
+            <div class="stream">
+                <h2>Raw Stream</h2>
+                <img id="rawStream" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+            </div>
+            <div class="stream">
+                <h2>Shape Detection</h2>
+                <img id="shapeStream" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+            </div>
+            <div class="stream">
+                <h2>Processed Objects</h2>
+                <img id="processedStream" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+            </div>
+            <div class="stream">
+                <h2>Validation Results</h2>
+                <img id="validationStream" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+            </div>
+        </div>
+        <h2>Detection Events</h2>
+        <div id="events"></div>
+
+        <script>
+            const host = window.location.host;
+
+            // Stream WebSockets
+            const rawWs = new WebSocket(`ws://${host}/ws/raw`);
+            const shapeWs = new WebSocket(`ws://${host}/ws/shape`);
+            const processedWs = new WebSocket(`ws://${host}/ws/processed`);
+            const validationWs = new WebSocket(`ws://${host}/ws/validation`);
+            const eventsWs = new WebSocket(`ws://${host}/ws/events`);
+
+            // Images
+            const rawImg = document.getElementById('rawStream');
+            const shapeImg = document.getElementById('shapeStream');
+            const processedImg = document.getElementById('processedStream');
+            const validationImg = document.getElementById('validationStream');
+            const eventsDiv = document.getElementById('events');
+
+            // Process received messages
+            rawWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.image) rawImg.src = 'data:image/jpeg;base64,' + data.image;
+            };
+
+            shapeWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.image) shapeImg.src = 'data:image/jpeg;base64,' + data.image;
+            };
+
+            processedWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.image) processedImg.src = 'data:image/jpeg;base64,' + data.image;
+            };
+
+            validationWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.image) validationImg.src = 'data:image/jpeg;base64,' + data.image;
+            };
+
+            eventsWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const timestamp = new Date(data.timestamp * 1000).toLocaleTimeString();
+                let message = '';
+
+                if (data.type === 'object_detected') {
+                    message = `[${timestamp}] Object detected: #${data.seq_number}`;
+                } else if (data.type === 'validation_result') {
+                    message = `[${timestamp}] Validation #${data.seq_number}: Sticker present: ${data.sticker_present}, Matches design: ${data.sticker_matches_design}`;
+                }
+
+                if (message) {
+                    const div = document.createElement('div');
+                    div.textContent = message;
+                    eventsDiv.appendChild(div);
+                    eventsDiv.scrollTop = eventsDiv.scrollHeight;
+                }
+            };
+
+            // Button handlers
+            document.getElementById('startBtn').addEventListener('click', async () => {
+                const response = await fetch('/stream/start', { method: 'POST' });
+                const result = await response.json();
+                console.log(result);
+            });
+
+            document.getElementById('stopBtn').addEventListener('click', async () => {
+                const response = await fetch('/stream/stop', { method: 'POST' });
+                const result = await response.json();
+                console.log(result);
+            });
+
+            document.getElementById('uploadBtn').addEventListener('click', async () => {
+                const fileInput = document.getElementById('stickerUpload');
+                if (!fileInput.files.length) {
+                    alert('Please select a file first');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                const response = await fetch('/upload/sticker', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                console.log(result);
+                alert(`Sticker uploaded: ${result.file_path}`);
+            });
+        </script>
+    </body>
+    </html>
+    """

@@ -7,7 +7,7 @@ from utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
 class CameraSettings(BaseModel):
     phone_ip: str = Field(default="146.0.1")
     port: int = Field(default=8080)
-    video_path: str = Field(default="data/cropped.mp4")
+    video_path: str = Field(default="../data/cropped.mp4")
 
 
 class ProcessingSettings(BaseModel):
@@ -21,22 +21,20 @@ class ProcessingSettings(BaseModel):
 class Settings(BaseModel):
     camera: CameraSettings = Field(default_factory=CameraSettings)
     processing: ProcessingSettings = Field(default_factory=ProcessingSettings)
-    bg_photo_path: str = Field(default="data/frame_empty.png")
-    sticker_design_path: str = Field(default="data/sticker_fixed.png")
+    bg_photo_path: str = Field(default="../data/frame_empty.png")
+    sticker_design_path: str = Field(default="../data/sticker_fixed.png")  # Fix the path here
     camera_type: str = Field(default="video")  # Options: "video", "ip"
 
     class Config:
         env_file = "../.env"
 
 
-# Global settings instance
 settings = Settings()
 
 
 def update_settings(new_settings: Settings) -> Settings:
     global settings
     settings = new_settings
-    # Update environment variables that affect the running application
     os.environ["DOWNSCALE_WIDTH"] = str(settings.processing.downscale_width)
     os.environ["DOWNSCALE_HEIGHT"] = str(settings.processing.downscale_height)
     os.environ["PHONE_IP"] = settings.camera.phone_ip
