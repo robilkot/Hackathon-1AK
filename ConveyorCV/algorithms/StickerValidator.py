@@ -9,6 +9,15 @@ class StickerValidator:
         self.__params = params
         assert(self.__params.sticker_design is not None)
 
+    def set_parameters(self, sticker_params: ValidationParams):
+        """Set the validation parameters for the sticker validator"""
+        self.__params = ValidationParams(
+            sticker_design=sticker_params.sticker_design,
+            center=sticker_params.center,
+            size=sticker_params.size,
+            rotation=sticker_params.rotation
+        )
+
     def validate(self, context: DetectionContext) -> DetectionContext:
         assert(context.processed_image is not None)
 
