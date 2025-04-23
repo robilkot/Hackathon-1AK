@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 import os
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, UploadFile, File, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, UploadFile, File, HTTPException, BackgroundTasks
 import cv2
 import threading
 import multiprocessing
@@ -156,15 +156,6 @@ def start_streaming():
         sticker_validator_process.start()
         is_streaming = True
 
-        # Run the streaming loop in a separate thread
-        threading.Thread(target=run_async_loop, daemon=True).start()
-
-
-def run_async_loop():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(stream_images_async())
-
 
 def stop_streaming():
     global is_streaming, shape_detector_process, shape_processor_process, sticker_validator_process
@@ -274,8 +265,21 @@ async def update_current_settings(settings: Settings):
 
 
 @app.post("/stream/start")
-async def start_stream():
-    start_streaming()
+async def start_stream_endpoint(background_tasks: BackgroundTasks):
+    global is_streaming, streaming_task
+
+    if not is_streaming:
+        # Initialize processes
+        settings = get_settings()
+        initialize_processes(settings)
+
+        shape_detector_process.start()
+        shape_processor_process.start()
+        sticker_validator_process.start()
+        is_streaming = True
+
+        background_tasks.add_task(stream_images_async)
+
     return {"status": "streaming started"}
 
 

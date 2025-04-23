@@ -1,3 +1,4 @@
+import time
 from typing import Dict, List
 import asyncio
 from fastapi import WebSocket
@@ -6,6 +7,8 @@ import cv2
 import numpy as np
 from enum import Enum, auto
 
+
+last_broadcast_time = {}
 
 class StreamType(Enum):
     RAW = auto()
@@ -34,11 +37,17 @@ class WebSocketManager:
 
     @staticmethod
     async def send_image(websocket: WebSocket, image: np.ndarray):
-        _, encoded_img = cv2.imencode('.jpg', image)
+        encode_params = [cv2.IMWRITE_JPEG_QUALITY, 75]
+        _, encoded_img = cv2.imencode('.jpg', image, encode_params)
         base64_img = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
         await websocket.send_json({"image": base64_img})
 
     async def broadcast_image(self, image: np.ndarray, stream_type: StreamType):
+        current_time = time.time()
+        if stream_type in last_broadcast_time and current_time - last_broadcast_time[stream_type] < 0.1:
+            return
+
+        last_broadcast_time[stream_type] = current_time
         self.latest_images[stream_type] = image
         for connection in self.active_connections[stream_type]:
             try:

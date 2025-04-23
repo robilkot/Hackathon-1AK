@@ -12,6 +12,7 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _image, value);
         }
 
+        
         private bool _stickerPresent;
         public bool StickerPresent
         {

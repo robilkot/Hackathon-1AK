@@ -1,6 +1,5 @@
-﻿using ReactiveUI;
-
-namespace ConveyorCV_frontend.ViewModels;
+﻿using ConveyorCV_frontend.ViewModels;
+using ReactiveUI;
 
 public class MainViewModel : ViewModelBase
 {
@@ -18,9 +17,17 @@ public class MainViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _validationResult, value);
     }
 
+    private StreamViewModel _streamViewModel;
+    public StreamViewModel StreamViewModel
+    {
+        get => _streamViewModel;
+        set => this.RaiseAndSetIfChanged(ref _streamViewModel, value);
+    }
+
     public MainViewModel()
     {
         StickerParameters = new StickerParametersViewModel();
         ValidationResult = new StickerValidationResultViewModel();
+        StreamViewModel = new StreamViewModel(ValidationResult);
     }
 }
