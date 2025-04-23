@@ -103,7 +103,7 @@ class DisplayerProcess(multiprocessing.Process):
 
 
 if __name__ == '__main__':
-    sticker_validator_params = ValidationParams(cv2.imread('ConveyorCV/data/sticker_fixed.png'))
+    sticker_validator_params = ValidationParams(cv2.imread('data/sticker_fixed.png'))
 
     shape_queue = multiprocessing.Queue()
     processed_shape_queue = multiprocessing.Queue()
