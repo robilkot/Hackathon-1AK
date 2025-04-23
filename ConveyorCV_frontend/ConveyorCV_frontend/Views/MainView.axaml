@@ -34,17 +34,17 @@
    RowDefinitions="*, 3, *"
    Grid.Column="2"
    Background="Gray">
-   
+
    <StackPanel Grid.Row="0" HorizontalAlignment="Stretch">
-    <Image HorizontalAlignment="Stretch" 
+    <Image HorizontalAlignment="Stretch"
            Stretch="Uniform"
            MaxHeight="{Binding $parent[Grid].Bounds.Height, Converter={StaticResource HalfSizeConverter}}"
-           Source="{Binding StreamViewModel.RawImage}"/>
+           Source="{Binding RawImage}"/>
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,1,0,0">
-     <Button Content="Начать трансляцию" Command="{Binding StreamViewModel.StartStreamCommand}" Margin="1,0"/>
-     <Button Content="Остановить трансляцию" Command="{Binding StreamViewModel.StopStreamCommand}" Margin="1,0"/>
+     <Button Content="Начать трансляцию" Command="{Binding StartStreamCommand}" Margin="1,0"/>
+     <Button Content="Остановить трансляцию" Command="{Binding StopStreamCommand}" Margin="1,0"/>
     </StackPanel>
-    <TextBlock HorizontalAlignment="Center" Margin="0,5,0,0" Text="{Binding StreamViewModel.Status}"/>
+    <TextBlock HorizontalAlignment="Center" Margin="0,5,0,0" Text="{Binding Status}"/>
    </StackPanel>
 
    <GridSplitter
@@ -65,8 +65,6 @@
      DataContext="{Binding ValidationResult}"
      Grid.Column="2"/>
    </Grid>
-   
-   
   </Grid>
  </Panel>
 </UserControl>
