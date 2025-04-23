@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
+using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using ReactiveUI;
 
@@ -10,16 +9,16 @@ namespace ConveyorCV_frontend.ViewModels
 {
     public class StickerValidationResultViewModel : ViewModelBase
     {
-        private readonly WebSocketService _webSocketService;
-        private Bitmap? _image;
+        private readonly ValidationService _validationService;
+        private Bitmap _image;
         private bool _stickerPresent;
-        private bool? _stickerMatchesDesign;
-        private PointViewModel? _stickerLocation = new(300f, 200f);
+        private bool _stickerMatchesDesign;
+        private PointViewModel _stickerLocation = new(300f, 200f);
         private SizeViewModel _stickerSize = new(400f, 200f);
-        private double? _rotation = 5;
+        private double _rotation = 5;
         private string _validationStatus = "";
 
-        public Bitmap? Image
+        public Bitmap Image
         {
             get => _image;
             set => this.RaiseAndSetIfChanged(ref _image, value);
@@ -31,13 +30,13 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _stickerPresent, value);
         }
 
-        public bool? StickerMatchesDesign
+        public bool StickerMatchesDesign
         {
             get => _stickerMatchesDesign;
             set => this.RaiseAndSetIfChanged(ref _stickerMatchesDesign, value);
         }
 
-        public PointViewModel? StickerLocation
+        public PointViewModel StickerLocation
         {
             get => _stickerLocation;
             set => this.RaiseAndSetIfChanged(ref _stickerLocation, value);
@@ -49,7 +48,7 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _stickerSize, value);
         }
 
-        public double? Rotation
+        public double Rotation
         {
             get => _rotation;
             set => this.RaiseAndSetIfChanged(ref _rotation, value);
@@ -63,115 +62,70 @@ namespace ConveyorCV_frontend.ViewModels
 
         public StickerValidationResultViewModel(WebSocketService webSocketService)
         {
-            _webSocketService = webSocketService;
-            _webSocketService.ImageReceived += OnImageReceived;
-            _webSocketService.EventReceived += OnEventReceived;
+            _validationService = new ValidationService(webSocketService);
+            _validationService.ImageReceived += OnImageReceived;
+            _validationService.ValidationResultReceived += OnValidationResultReceived;
+            _validationService.ErrorOccurred += OnErrorOccurred;
         }
 
         public async Task ConnectAsync()
         {
-            await _webSocketService.ConnectAsync("/ws/validation", "validation");
-            await _webSocketService.ConnectAsync("/ws/events", "events");
+            await _validationService.ConnectAsync();
         }
 
         public async Task DisconnectAsync()
         {
-            await _webSocketService.DisconnectAsync("validation");
-            await _webSocketService.DisconnectAsync("events");
+            await _validationService.DisconnectAsync();
         }
 
-        private void OnImageReceived(string streamType, Bitmap image)
+        private void OnImageReceived(Bitmap image)
         {
-            if (streamType == "validation")
-            {
-                Image = image;
-            }
+            Image = image;
         }
 
-        private void OnEventReceived(string streamType, object eventData)
+        private void OnValidationResultReceived(ValidationResultDTO result)
         {
-            try
+            StickerPresent = result.StickerPresent;
+            StickerMatchesDesign = result.StickerMatchesDesign;
+            
+            // Update position if available
+            if (result.Position != null)
             {
-                if (streamType == "events" && eventData is Dictionary<string, object> data)
-                {
-                    if (data.TryGetValue("type", out var type) && type.ToString() == "validation_result")
-                    {
-                        // More robust handling of sticker_present
-                        if (data.TryGetValue("sticker_present", out var stickerPresent))
-                        {
-                            bool parsedValue = false;
-                            if (stickerPresent is bool boolVal)
-                                parsedValue = boolVal;
-                            else if (stickerPresent is JsonElement jsonElement)
-                                parsedValue = jsonElement.GetBoolean();
-                            else if (stickerPresent != null)
-                                parsedValue = Convert.ToBoolean(stickerPresent);
-                                
-                            StickerPresent = parsedValue;
-                        }
-
-                        // More robust handling of sticker_matches_design
-                        if (data.TryGetValue("sticker_matches_design", out var matchesDesign))
-                        {
-                            bool parsedValue = false;
-                            if (matchesDesign is bool boolVal)
-                                parsedValue = boolVal;
-                            else if (matchesDesign is JsonElement jsonElement)
-                                parsedValue = jsonElement.GetBoolean();
-                            else if (matchesDesign != null)
-                                parsedValue = Convert.ToBoolean(matchesDesign);
-                                
-                            StickerMatchesDesign = parsedValue;
-                        }
-
-                        // Process position if available
-                        if (data.TryGetValue("position", out var position) &&
-                            position is Dictionary<string, object> posData)
-                        {
-                            double x = 0, y = 0;
-                            if (posData.TryGetValue("x", out var xVal))
-                                x = Convert.ToDouble(xVal);
-                            if (posData.TryGetValue("y", out var yVal))
-                                y = Convert.ToDouble(yVal);
-
-                            StickerLocation = new PointViewModel(x, y);
-                        }
-
-                        // Process size if available
-                        if (data.TryGetValue("size", out var size) && 
-                            size is Dictionary<string, object> sizeData)
-                        {
-                            double width = 0, height = 0;
-                            if (sizeData.TryGetValue("width", out var widthVal))
-                                width = Convert.ToDouble(widthVal);
-                            if (sizeData.TryGetValue("height", out var heightVal))
-                                height = Convert.ToDouble(heightVal);
-
-                            StickerSize = new SizeViewModel(width, height);
-                        }
-
-                        // Process rotation if available
-                        if (data.TryGetValue("rotation", out var rotation))
-                        {
-                            double rotationValue = 0;
-                            if (rotation is double doubleVal)
-                                rotationValue = doubleVal;
-                            else if (rotation != null)
-                                rotationValue = Convert.ToDouble(rotation);
-                                
-                            Rotation = rotationValue;
-                        }
-                        
-                        // Update validation status to confirm changes were processed
-                        ValidationStatus = $"Наклейка: {(StickerPresent ? "присутствует" : "отсутствует")}, " +
-                                        $"Соответствие: {(StickerMatchesDesign == true ? "да" : "нет")}";
-                    }
-                }
+                double x = 0, y = 0;
+                if (result.Position.TryGetValue("x", out var xVal))
+                    x = Convert.ToDouble(xVal);
+                if (result.Position.TryGetValue("y", out var yVal))
+                    y = Convert.ToDouble(yVal);
+                
+                StickerLocation = new PointViewModel(x, y);
             }
-            catch (Exception ex)
+
+            // Update size if available
+            if (result.Size != null)
             {
-                ValidationStatus = $"Ошибка обработки события: {ex.Message}";
+                double width = 0, height = 0;
+                if (result.Size.TryGetValue("width", out var widthVal))
+                    width = Convert.ToDouble(widthVal);
+                if (result.Size.TryGetValue("height", out var heightVal))
+                    height = Convert.ToDouble(heightVal);
+                
+                StickerSize = new SizeViewModel(width, height);
             }
+
+            // Update rotation if available
+            if (result.Rotation.HasValue)
+            {
+                Rotation = result.Rotation.Value;
+            }
+
+            // Update validation status
+            ValidationStatus = $"Наклейка: {(StickerPresent ? "присутствует" : "отсутствует")}, " +
+                            $"Соответствие: {(StickerMatchesDesign ? "да" : "нет")}";
+        }
+
+        private void OnErrorOccurred(string message)
+        {
+            ValidationStatus = $"Ошибка: {message}";
         }
     }
 }
