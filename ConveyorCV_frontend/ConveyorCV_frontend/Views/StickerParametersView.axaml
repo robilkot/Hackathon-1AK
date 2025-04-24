@@ -141,6 +141,13 @@
 					VerticalContentAlignment="Center"
 					Value="{Binding Center.Y}"/>
 			</Grid>
+			<Button 
+				Grid.Row="1" 
+				Grid.ColumnSpan="2"
+				HorizontalAlignment="Stretch"
+				HorizontalContentAlignment="Center"
+				Command="{Binding ApplyCommand}"
+				Content="Применить"/>
 		</StackPanel>
 
 		<paz:ZoomBorder 

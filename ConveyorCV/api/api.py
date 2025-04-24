@@ -354,12 +354,10 @@ async def set_sticker_parameters(sticker_params: dict):
     """Set sticker parameters for validation"""
     global sticker_validator_process
 
-    # Decode base64 image
     image_bytes = base64.b64decode(sticker_params["image"])
     image_array = np.frombuffer(image_bytes, dtype=np.uint8)
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
-    # Create StickerParameters object
     params = ValidationParams(
         sticker_design=image,
         center=(float(sticker_params["centerX"]), float(sticker_params["centerY"])),
@@ -368,17 +366,15 @@ async def set_sticker_parameters(sticker_params: dict):
         rotation=float(sticker_params["rotation"])
     )
 
-    # Update sticker validator parameters
     was_streaming = is_streaming
     if was_streaming:
         stop_streaming()
-
-    # We need to update the validator and restart
-    sticker_validator_process.terminate()
-    sticker_validator = StickerValidator()
-    sticker_validator.set_parameters(params)
-    sticker_validator_process = StickerValidatorProcess(
-        processed_shape_queue, results_queue, sticker_validator)
+    #todo change implementation
+    # sticker_validator_process.terminate()
+    # sticker_validator = StickerValidator()
+    # sticker_validator.set_parameters(params)
+    # sticker_validator_process = StickerValidatorProcess(
+    #     processed_shape_queue, results_queue, sticker_validator)
 
     if was_streaming:
         start_streaming()

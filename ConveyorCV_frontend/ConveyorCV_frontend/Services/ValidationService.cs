@@ -146,10 +146,17 @@ namespace ConveyorCV_frontend.Services
             {
                 if (value is double doubleVal)
                     return doubleVal;
-                else if (value is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Number)
-                    return jsonElement.GetDouble();
-                else if (value != null)
-                    return double.TryParse(value.ToString(), out var result) ? result : 0;
+                else if (value is JsonElement jsonElement)
+                {
+                    if (jsonElement.ValueKind == JsonValueKind.Number)
+                        return jsonElement.GetDouble();
+                    else if (jsonElement.ValueKind == JsonValueKind.String && 
+                             double.TryParse(jsonElement.GetString(), out var parsed))
+                        return parsed;
+                    return 0;
+                }
+                else if (value != null && double.TryParse(value.ToString(), out var result))
+                    return result;
             }
             return 0;
         }
