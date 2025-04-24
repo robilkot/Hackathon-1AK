@@ -1,4 +1,5 @@
 ﻿using ReactiveUI;
+using System.Drawing;
 
 namespace ConveyorCV_frontend.ViewModels
 {
@@ -22,6 +23,11 @@ namespace ConveyorCV_frontend.ViewModels
         {
             Y = y;
             X = x;
+        }
+        public PointViewModel(PointF point)
+        {
+            Y = point.Y;
+            X = point.X;
         }
     }
 }

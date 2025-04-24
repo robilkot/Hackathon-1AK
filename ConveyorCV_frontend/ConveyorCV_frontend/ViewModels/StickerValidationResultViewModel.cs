@@ -1,5 +1,7 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
@@ -10,62 +12,85 @@ namespace ConveyorCV_frontend.ViewModels
     public class StickerValidationResultViewModel : ViewModelBase
     {
         private readonly ValidationService _validationService;
-        private Bitmap _image;
-        private bool _stickerPresent;
-        private bool _stickerMatchesDesign;
-        private PointViewModel _stickerLocation = new(300f, 200f);
-        private SizeViewModel _stickerSize = new(400f, 200f);
-        private double _rotation = 5;
-        private string _validationStatus = "";
 
+        private StickerValidationResult? _lastResult;
+        public StickerValidationResult? LastResult
+        {
+            get => _lastResult;
+            set => this.RaiseAndSetIfChanged(ref _lastResult, value);
+        }
+
+        private Bitmap _image;
         public Bitmap Image
         {
             get => _image;
             set => this.RaiseAndSetIfChanged(ref _image, value);
         }
 
+        private bool _stickerPresent;
         public bool StickerPresent
         {
             get => _stickerPresent;
             set => this.RaiseAndSetIfChanged(ref _stickerPresent, value);
         }
 
-        public bool StickerMatchesDesign
+        private bool? _stickerMatchesDesign;
+        public bool? StickerMatchesDesign
         {
             get => _stickerMatchesDesign;
             set => this.RaiseAndSetIfChanged(ref _stickerMatchesDesign, value);
         }
 
-        public PointViewModel StickerLocation
+        private PointViewModel? _stickerLocation = new(300f, 200f);
+        public PointViewModel? StickerLocation
         {
             get => _stickerLocation;
             set => this.RaiseAndSetIfChanged(ref _stickerLocation, value);
         }
 
-        public SizeViewModel StickerSize
+        private SizeViewModel? _stickerSize = new(400f, 200f);
+        public SizeViewModel? StickerSize
         {
             get => _stickerSize;
             set => this.RaiseAndSetIfChanged(ref _stickerSize, value);
         }
 
-        public double Rotation
+        private double? _rotation = 5;
+        public double? Rotation
         {
             get => _rotation;
             set => this.RaiseAndSetIfChanged(ref _rotation, value);
         }
 
-        public string ValidationStatus
+        private int _seqNumber = 42;
+        public int SeqNumber
         {
-            get => _validationStatus;
-            set => this.RaiseAndSetIfChanged(ref _validationStatus, value);
+            get => _seqNumber;
+            set => this.RaiseAndSetIfChanged(ref _seqNumber, value);
         }
+
+        private DateTimeOffset _detectionTime = DateTimeOffset.Now;
+        public DateTimeOffset DetectionTime
+        {
+            get => _detectionTime;
+            set => this.RaiseAndSetIfChanged(ref _detectionTime, value);
+        }
+
 
         public StickerValidationResultViewModel(WebSocketService webSocketService)
         {
             _validationService = new ValidationService(webSocketService);
-            _validationService.ImageReceived += OnImageReceived;
             _validationService.ValidationResultReceived += OnValidationResultReceived;
-            _validationService.ErrorOccurred += OnErrorOccurred;
+        }
+
+        public StickerValidationResultViewModel()
+        {
+            if (!Design.IsDesignMode)
+            {
+                throw new NotSupportedException();
+            }
+
+            LastResult = new([], new(), 0, true, false, new(), new(), 5);
         }
 
         public async Task ConnectAsync()
@@ -78,54 +103,26 @@ namespace ConveyorCV_frontend.ViewModels
             await _validationService.DisconnectAsync();
         }
 
-        private void OnImageReceived(Bitmap image)
+        private void OnValidationResultReceived(StickerValidationResult result)
         {
-            Image = image;
-        }
+            using (var ms = new MemoryStream(result.Image))
+            {
+                var bitmap = new Bitmap(ms);
+                if (bitmap != null)
+                {
+                    Image = bitmap;
+                }
+            }
 
-        private void OnValidationResultReceived(ValidationResultDTO result)
-        {
             StickerPresent = result.StickerPresent;
             StickerMatchesDesign = result.StickerMatchesDesign;
-            
-            // Update position if available
-            if (result.Position != null)
-            {
-                double x = 0, y = 0;
-                if (result.Position.TryGetValue("x", out var xVal))
-                    x = Convert.ToDouble(xVal);
-                if (result.Position.TryGetValue("y", out var yVal))
-                    y = Convert.ToDouble(yVal);
-                
-                StickerLocation = new PointViewModel(x, y);
-            }
+            StickerLocation = result.StickerLocation.HasValue ? new(result.StickerLocation.Value) : null;
+            StickerSize = new(result.StickerSize);
+            Rotation = result.Rotation;
+            SeqNumber = result.SeqNumber;
+            DetectionTime = result.Timestamp;
 
-            // Update size if available
-            if (result.Size != null)
-            {
-                double width = 0, height = 0;
-                if (result.Size.TryGetValue("width", out var widthVal))
-                    width = Convert.ToDouble(widthVal);
-                if (result.Size.TryGetValue("height", out var heightVal))
-                    height = Convert.ToDouble(heightVal);
-                
-                StickerSize = new SizeViewModel(width, height);
-            }
-
-            // Update rotation if available
-            if (result.Rotation.HasValue)
-            {
-                Rotation = result.Rotation.Value;
-            }
-
-            // Update validation status
-            ValidationStatus = $"Наклейка: {(StickerPresent ? "присутствует" : "отсутствует")}, " +
-                            $"Соответствие: {(StickerMatchesDesign ? "да" : "нет")}";
-        }
-
-        private void OnErrorOccurred(string message)
-        {
-            ValidationStatus = $"Ошибка: {message}";
+            LastResult = result;
         }
     }
 }

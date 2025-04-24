@@ -1,12 +1,12 @@
+using Avalonia.Data.Converters;
+using ConveyorCV_frontend.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Avalonia.Data;
-using Avalonia.Data.Converters;
-using ConveyorCV_frontend.ViewModels;
 
 namespace ConveyorCV_frontend.Converters;
 
+// todo shit
 public class StickerParametersToXConverter : IMultiValueConverter
 {
 

@@ -4,7 +4,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
-    xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters;assembly=ConveyorCV_frontend"
+    xmlns:paz="using:Avalonia.Controls.PanAndZoom"
+	xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters;assembly=ConveyorCV_frontend"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="ConveyorCV_frontend.Views.StickerValidationResultView"
     x:DataType="vm:StickerValidationResultViewModel">
@@ -21,88 +22,149 @@
             x:Key="BoolToColorConverter"
             TrueValue="Green"
             FalseValue="Red"/>
+		<converters:StickerParametersToYConverter
+			x:Key="StickerParametersToYConverter"/>
+		<converters:StickerParametersToXConverter
+			x:Key="StickerParametersToXConverter"/>
     </UserControl.Resources>
     <Design.DataContext>
         <vm:StickerValidationResultViewModel/>
     </Design.DataContext>
 
-    <Grid>
-        <!-- Validation Image with Results Overlay -->
-        <Panel>
-            <Image Source="{Binding Image}" Stretch="Uniform"/>
+	<Panel>
+		<TextBlock
+			IsVisible="{Binding LastResult, Converter={x:Static ObjectConverters.IsNull}}"
+			HorizontalAlignment="Center"
+			VerticalAlignment="Center"
+			FontSize="20"
+			Text="Ожидание обнаружений..."/>
+		<Panel
+			IsVisible="{Binding LastResult, Converter={x:Static ObjectConverters.IsNotNull}}">	
+			<paz:ZoomBorder
+				Name="ZoomBorder"
+				Stretch="None"
+				ZoomSpeed="1.2"
+				ClipToBounds="True"
+				Focusable="True"
+				VerticalAlignment="Stretch"
+				HorizontalAlignment="Stretch">
+				<Border
+					x:Name="AccBorder"
+					Margin="50"
+					Grid.Row="1"
+					Grid.Column="1"
+					Width="{Binding Image.Size.Width}"
+					Height="{Binding Image.Size.Height}"
+					BorderThickness="2"
+					BorderBrush="Black"
+					HorizontalAlignment="Stretch"
+					VerticalAlignment="Stretch">
+				
+					<Panel>
+						<Image
+							Source="{Binding Image}"
+							Stretch="Uniform"/>
 
-            <!-- Validation Status Indicators -->
-            <StackPanel
-                ZIndex="1"
-                VerticalAlignment="Top"
-                HorizontalAlignment="Left"
-                Orientation="Vertical"
-                Margin="10"
-                Spacing="5">
-                <!-- Sticker Present/Absent -->
-                <Border
-                    Background="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
-                    CornerRadius="3"
-                    Padding="5">
-                    <TextBlock
-                        FontSize="16"
-                        TextAlignment="Center"
-                        Foreground="White"
-                        Text="{Binding StickerPresent, Converter={StaticResource StickerPresentTextConverter}}"/>
-                </Border>
+						<!-- Sticker Outline -->
+						<Border
+							Width="{Binding StickerSize.Width}"
+							Height="{Binding StickerSize.Height}"
+							BorderThickness="2"
+							BorderBrush="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
+							HorizontalAlignment="Left"
+							VerticalAlignment="Top">
+							<Border.RenderTransform>
+								<TransformGroup>
+									<RotateTransform
+										Angle="{Binding Rotation}"/>
+									<TranslateTransform>
+										<TranslateTransform.X>
+											<MultiBinding Converter="{StaticResource StickerParametersToXConverter}">
+												<Binding Path="StickerLocation.X"/>
+												<Binding Path="StickerSize"/>
+											</MultiBinding>
+										</TranslateTransform.X>
+										<TranslateTransform.Y>
+											<MultiBinding Converter="{StaticResource StickerParametersToYConverter}">
+												<Binding Path="StickerLocation.Y"/>
+												<Binding Path="StickerSize"/>
+											</MultiBinding>
+										</TranslateTransform.Y>
+									</TranslateTransform>
+								</TransformGroup>
+							</Border.RenderTransform>
+						</Border>
 
-                <!-- Sticker Design Match - only visible when sticker is present -->
-                <Border
-                    IsVisible="{Binding StickerPresent}"
-                    Background="{Binding StickerMatchesDesign, Converter={StaticResource BoolToColorConverter}}"
-                    CornerRadius="3"
-                    Padding="5">
-                    <TextBlock
-                        FontSize="16"
-                        TextAlignment="Center"
-                        Foreground="White"
-                        Text="{Binding StickerMatchesDesign, Converter={StaticResource StickerMatchesDesignTextConverter}}"/>
-                </Border>
-            </StackPanel>
+						<Canvas>
+							<Ellipse
+								Width="10"
+								Height="10"
+								Fill="Red"
+								Canvas.Left="{Binding StickerLocation.X}"
+								Canvas.Top="{Binding StickerLocation.Y}"
+								Margin="-5,-5,0,0"/>
+						</Canvas>
+					</Panel>
+				</Border>
 
-            <!-- Sticker Outline -->
-            <Border
-                Width="{Binding StickerSize.Width}"
-                Height="{Binding StickerSize.Height}"
-                BorderThickness="2"
-                BorderBrush="Yellow"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center">
-                <Border.RenderTransform>
-                    <RotateTransform Angle="{Binding Rotation}"/>
-                </Border.RenderTransform>
-            </Border>
+			</paz:ZoomBorder>
 
-            <!-- Position Marker (fixed implementation) -->
-            <Canvas>
-                <Ellipse
-                    Width="10"
-                    Height="10"
-                    Fill="Red"
-                    Canvas.Left="{Binding StickerLocation.X}"
-                    Canvas.Top="{Binding StickerLocation.Y}"
-                    Margin="-5,-5,0,0"/>
-            </Canvas>
-        </Panel>
+			<Expander
+				ZIndex="3"
+				IsExpanded="True"
+				VerticalAlignment="Top"
+				HorizontalAlignment="Left"
+				Classes="container">
+				<Expander.Header>
+					<TextBlock
+						Grid.Column="0"
+						VerticalAlignment="Center"
+						HorizontalAlignment="Left"
+						FontSize="20"
+						Text="Результат обнаружения"/>
+				</Expander.Header>
+				<StackPanel
+					Spacing="10">
+					<Border
+						Background="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
+						CornerRadius="3"
+						Padding="5">
+						<TextBlock
+							FontSize="20"
+							TextAlignment="Center"
+							Foreground="White"
+							Text="{Binding StickerPresent, Converter={StaticResource StickerPresentTextConverter}}"/>
+					</Border>
 
-        <!-- Parameter Values Panel -->
-        <Border
-            VerticalAlignment="Bottom"
-            HorizontalAlignment="Left"
-            Background="#80000000"
-            CornerRadius="3"
-            Margin="10"
-            Padding="10">
-            <StackPanel Spacing="5">
-                <TextBlock Foreground="White" Text="{Binding StickerLocation, StringFormat='Position: X={0:F1}, Y={1:F1}'}" />
-                <TextBlock Foreground="White" Text="{Binding StickerSize, StringFormat='Size: W={0:F1} x H={1:F1}'}" />
-                <TextBlock Foreground="White" Text="{Binding Rotation, StringFormat='Rotation: {0:F1}°'}" />
-            </StackPanel>
-        </Border>
-    </Grid>
+					<!-- Sticker Design Match - only visible when sticker is present -->
+					<Border
+						IsVisible="{Binding StickerPresent}"
+						Background="{Binding StickerMatchesDesign, Converter={StaticResource BoolToColorConverter}}"
+						CornerRadius="3"
+						Padding="5">
+						<TextBlock
+							FontSize="20"
+							TextAlignment="Center"
+							Foreground="White"
+							Text="{Binding StickerMatchesDesign, Converter={StaticResource StickerMatchesDesignTextConverter}}"/>
+					</Border>
+
+					<!--<TextBlock Text="{Binding StickerSize.Width, StringFormat='Ширина наклейки: {0:F1}'}" />-->
+					<TextBlock>
+						<Run Text="Поворот наклейки: "/>
+						<Run Text="{Binding Rotation, StringFormat={}{0:0.0}°}"/>
+					</TextBlock>
+					<Separator/>
+					<TextBlock>
+						<Run Text="Порядковый номер аккумулятора: "/>
+						<Run Text="{Binding SeqNumber}"/>
+					</TextBlock>
+					<TextBlock>
+						<Run Text="Время обнаружения: "/>
+						<Run Text="{Binding DetectionTime, StringFormat={}{0:hh.mm.ss}}"/>
+					</TextBlock>
+				</StackPanel>
+			</Expander>
+		</Panel>
+	</Panel>
 </UserControl>

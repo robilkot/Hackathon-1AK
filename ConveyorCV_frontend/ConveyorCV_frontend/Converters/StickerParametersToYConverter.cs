@@ -6,6 +6,7 @@ using ConveyorCV_frontend.ViewModels;
 
 namespace ConveyorCV_frontend.Converters;
 
+// todo shit
 public class StickerParametersToYConverter : IMultiValueConverter
 {
 

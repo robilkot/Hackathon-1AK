@@ -1,4 +1,5 @@
 ﻿using ReactiveUI;
+using System.Drawing;
 
 namespace ConveyorCV_frontend.ViewModels
 {
@@ -22,6 +23,11 @@ namespace ConveyorCV_frontend.ViewModels
         {
             Height = height;
             Width = width;
+        }
+        public SizeViewModel(SizeF size)
+        {
+            Height = size.Height;
+            Width = size.Width;
         }
     }
 }

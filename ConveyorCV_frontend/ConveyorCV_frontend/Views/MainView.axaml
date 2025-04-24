@@ -1,70 +1,102 @@
 <UserControl
- xmlns="https://github.com/avaloniaui"
+    xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
     xmlns:views="clr-namespace:ConveyorCV_frontend.Views"
+    xmlns:models="clr-namespace:ConveyorCV_frontend.Models"
     xmlns:global="clr-namespace:"
     xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="ConveyorCV_frontend.Views.MainView"
     x:DataType="global:MainViewModel">
-  <Design.DataContext>
-   <global:MainViewModel />
-  </Design.DataContext>
- <UserControl.Resources>
-  <converters:HalfSizeConverter x:Key="HalfSizeConverter"/>
- </UserControl.Resources>
- <Panel>
-  <Menu
-   Margin="2"
-   ZIndex="1"
-   HorizontalAlignment="Left"
-   VerticalAlignment="Top">
-   <MenuItem
-    Background="DarkGray"
-    Header="Настройки"/>
-   <MenuItem
-    Background="DarkGray"
-    Header="Журнал работы"/>
-  </Menu>
+	<Design.DataContext>
+        <global:MainViewModel />
+    </Design.DataContext>
 
-  <Grid
-   RowDefinitions="*, 3, *"
-   Grid.Column="2"
-   Background="Gray">
+	<UserControl.Resources>
+		<converters:StreamStatusToTextConverter
+			x:Key="StreamStatusToTextConverter"/>
+	</UserControl.Resources>
+    <Panel>
+        <Menu
+			Margin="5"
+            ZIndex="2"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top">
+            <MenuItem
+                Background="DarkGray"
+                Header="Настройки"/>
+            <MenuItem
+                Background="DarkGray"
+                Header="Журнал работы"/>
+			
+		</Menu>
 
-   <StackPanel Grid.Row="0" HorizontalAlignment="Stretch">
-    <Image HorizontalAlignment="Stretch"
-           Stretch="Uniform"
-           MaxHeight="{Binding $parent[Grid].Bounds.Height, Converter={StaticResource HalfSizeConverter}}"
-           Source="{Binding RawImage}"/>
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,1,0,0">
-     <Button Content="Начать трансляцию" Command="{Binding StartStreamCommand}" Margin="1,0"/>
-     <Button Content="Остановить трансляцию" Command="{Binding StopStreamCommand}" Margin="1,0"/>
-    </StackPanel>
-    <TextBlock HorizontalAlignment="Center" Margin="0,5,0,0" Text="{Binding Status}"/>
-   </StackPanel>
+        <Grid
+            RowDefinitions="*, 2, *"
+		    Background="{DynamicResource ThemeBackgroundBrush}">
 
-   <GridSplitter
-    Grid.Row="1"/>
+			<Panel
+				Background="Black">
+				<Border
+					HorizontalAlignment="Center"
+					VerticalAlignment="Bottom"
+					Background="White"
+					Padding="2"
+					CornerRadius="5">
+					<StackPanel
+						ZIndex="1"
+						Spacing="5"
+						Orientation="Horizontal">
+						<TextBlock
+							Margin="10 0"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+							FontSize="20"
+							Text="{Binding Status, Converter={StaticResource StreamStatusToTextConverter}}"/>
 
-   <Grid
-    Grid.Row="2"
-    ColumnDefinitions="*, 3, *">
+						<Button
+							Width="200"
+							HorizontalContentAlignment="Center"
+							Content="Начать трансляцию"
+							Command="{Binding StartStreamCommand}"/>
+						<Button
+							Width="200"
+							HorizontalContentAlignment="Center"
+							Content="Остановить трансляцию"
+							Command="{Binding StopStreamCommand}"/>
+					</StackPanel>
+				</Border>
+				<Image
+					Grid.Row="0"
+					VerticalAlignment="Stretch"
+					HorizontalAlignment="Stretch"
+					Stretch="Uniform"
+					Source="{Binding RawImage}"/>
+			</Panel>
+			
+            <GridSplitter
+				Background="Gray"
+                Grid.Row="1"/>
 
-    <views:StickerParametersView
-     DataContext="{Binding StickerParameters}"
-     Grid.Column="0"/>
+            <Grid
+                Grid.Row="2"
+                ColumnDefinitions="*, 2, *">
 
-    <GridSplitter
-     Grid.Column="1"/>
+            <views:StickerParametersView
+                DataContext="{Binding StickerParameters}"
+                Grid.Column="0"/>
 
-    <views:StickerValidationResultView
-     DataContext="{Binding ValidationResult}"
-     Grid.Column="2"/>
-   </Grid>
-  </Grid>
- </Panel>
+			<GridSplitter
+				Background="Gray"
+                Grid.Column="1"/>
+
+            <views:StickerValidationResultView
+                DataContext="{Binding ValidationResult}"
+                Grid.Column="2"/>
+            </Grid>
+        </Grid>
+    </Panel>
 </UserControl>

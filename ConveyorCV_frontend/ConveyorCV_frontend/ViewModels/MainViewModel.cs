@@ -1,18 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reactive;
-using System.Threading.Tasks;
-using Avalonia.Media.Imaging;
+﻿using Avalonia.Media.Imaging;
+using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using ConveyorCV_frontend.ViewModels;
 using ReactiveUI;
+using System;
+using System.Diagnostics;
+using System.Reactive;
+using System.Threading.Tasks;
 
 public class MainViewModel : ViewModelBase
 {
     private readonly WebSocketService _webSocketService;
-    private Bitmap _rawImage;
-    private string _status = "Отключено";
-    private bool _isStreaming = false;
 
     private StickerParametersViewModel _stickerParameters;
     public StickerParametersViewModel StickerParameters
@@ -31,18 +29,21 @@ public class MainViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> StartStreamCommand { get; }
     public ReactiveCommand<Unit, Unit> StopStreamCommand { get; }
 
+    private Bitmap _rawImage;
     public Bitmap RawImage
     {
         get => _rawImage;
         private set => this.RaiseAndSetIfChanged(ref _rawImage, value);
     }
 
-    public string Status
+    private StreamStatus _status = StreamStatus.Disconnected;
+    public StreamStatus Status
     {
         get => _status;
         set => this.RaiseAndSetIfChanged(ref _status, value);
     }
 
+    private bool _isStreaming = false;
     public bool IsStreaming
     {
         get => _isStreaming;
@@ -58,52 +59,59 @@ public class MainViewModel : ViewModelBase
 
         StickerParameters = new StickerParametersViewModel();
         ValidationResult = new StickerValidationResultViewModel(_webSocketService);
-        
+
         StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync);
         StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync);
     }
 
     private async Task StartStreamAsync()
     {
-        try {
+        try
+        {
             if (IsStreaming)
                 return;
 
-            Status = "Подключение...";
+            Status = StreamStatus.Connecting;
             await _webSocketService.ConnectAsync("/ws/raw", "raw");
-            
+
+            // todo review. seems shit
             // Let validation view handle its own connections
             await ValidationResult.ConnectAsync();
-            
-            Status = "Запуск трансляции...";
+
+            Status = StreamStatus.Starting;
             await _webSocketService.StartStreamAsync();
             IsStreaming = true;
-            Status = "Трансляция";
+            Status = StreamStatus.Running;
         }
-        catch (Exception ex) {
-            Status = $"Ошибка: {ex.Message}";
+        catch (Exception ex)
+        {
+            Status = StreamStatus.Error;
+            Console.WriteLine("Stream exception: ", ex.Message);
         }
     }
 
     private async Task StopStreamAsync()
     {
-        try {
+        try
+        {
             if (!IsStreaming)
                 return;
 
-            Status = "Остановка трансляции...";
+            Status = StreamStatus.Stopping;
             await _webSocketService.StopStreamAsync();
-            
+
             await _webSocketService.DisconnectAsync("raw");
-            
+
             // Let validation view handle its own disconnections
             await ValidationResult.DisconnectAsync();
-            
+
             IsStreaming = false;
-            Status = "Трансляция остановлена";
+            Status = StreamStatus.Disconnected;
         }
-        catch (Exception ex) {
-            Status = $"Ошибка: {ex.Message}";
+        catch (Exception ex)
+        {
+            Status = StreamStatus.Error;
+            Console.WriteLine("Stream exception: ", ex.Message);
         }
     }
 
@@ -119,13 +127,14 @@ public class MainViewModel : ViewModelBase
     {
         if (streamType == "raw")
         {
-            Status = "Соединение с трансляцией потеряно";
+            Status = StreamStatus.LostConnection;
             IsStreaming = false;
         }
     }
 
     private void OnErrorOccurred(string streamType, Exception ex)
     {
-        Status = $"Ошибка в {streamType}: {ex.Message}";
+        Status = StreamStatus.Error;
+        Console.WriteLine("Stream exception: ", ex.Message);
     }
 }
