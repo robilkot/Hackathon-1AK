@@ -1,6 +1,6 @@
 import asyncio
 import base64
-from multiprocess import Process, Queue
+from multiprocessing import Queue, Process
 
 import cv2
 import numpy as np
@@ -19,7 +19,6 @@ from settings import Settings, get_settings, update_settings
 from websocket_manager import WebSocketManager, StreamType
 
 app = FastAPI(title="Conveyor CV API")
-
 settings = get_settings()
 
 shape_queue = Queue()
@@ -45,7 +44,6 @@ sticker_validator_params = ValidationParams(
     rotation=0.0
 )
 
-manager = WebSocketManager()
 detector = ShapeDetector()
 processor = ShapeProcessor()
 validator = StickerValidator(sticker_validator_params)
@@ -153,7 +151,7 @@ async def update_current_settings(settings: Settings):
 
     return updated
 
-
+manager = WebSocketManager()
 @app.post("/stream/start")
 async def start_stream_endpoint(background_tasks: BackgroundTasks):
     start_processes()
@@ -164,7 +162,6 @@ async def start_stream_endpoint(background_tasks: BackgroundTasks):
 @app.post("/stream/stop")
 async def stop_stream():
     stop_processes()
-
     return {"status": "streaming stopped"}
 
 

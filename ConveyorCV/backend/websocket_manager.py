@@ -7,15 +7,10 @@ import cv2
 import numpy as np
 from enum import Enum, auto
 
+from backend.stream_type import StreamType
 
 last_broadcast_time = {}
 
-class StreamType(Enum):
-    RAW = auto()
-    SHAPE = auto()
-    PROCESSED = auto()
-    VALIDATION = auto()
-    EVENTS = auto()
 
 class WebSocketManager:
     def __init__(self):
@@ -51,10 +46,11 @@ class WebSocketManager:
 
         last_broadcast_time[stream_type] = current_time
         self.latest_images[stream_type] = image
+
+
         for connection in self.active_connections[stream_type]:
             try:
                 await self.send_image(connection, image)
             except Exception:
-                # Remove dead connections
                 await connection.close()
                 self.active_connections[stream_type].remove(connection)

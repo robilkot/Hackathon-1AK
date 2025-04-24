@@ -1,6 +1,8 @@
 # frames -> BW masks of prop
 import base64
 import time
+from multiprocessing import Process, Queue
+
 import cv2
 
 from Camera.CameraInterface import CameraInterface
@@ -11,7 +13,6 @@ from backend.websocket_manager import WebSocketManager, StreamType
 from model.model import DetectionContext, StreamingContext
 from utils.downscale import downscale
 from utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
-from multiprocess import Process, Queue
 
 
 class ShapeDetectorProcess(Process):
