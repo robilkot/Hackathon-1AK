@@ -11,7 +11,13 @@ import threading
 import multiprocessing
 from multiprocessing import Queue
 import json
-
+from sqlalchemy.orm import Session
+from db.database import get_db, engine
+from db import model, crud
+from typing import List
+from pydantic import BaseModel
+import datetime
+from fastapi import Depends, Query
 from websocket_manager import WebSocketManager, StreamType
 from settings import Settings, get_settings, update_settings
 from fastapi.responses import HTMLResponse
@@ -78,7 +84,8 @@ def initialize_processes(settings: Settings):
     sticker_validator_params = ValidationParams(
         sticker_design=sticker_design,
         center=(sticker_design.shape[1] // 2, sticker_design.shape[0] // 2),
-        size=(sticker_design.shape[1], sticker_design.shape[0]),
+        sticker_size=(sticker_design.shape[1], sticker_design.shape[0]),
+        battery_size=(sticker_design.shape[1]*1.5, sticker_design.shape[0]*1.5),
         rotation=0.0
     )
 
@@ -93,63 +100,75 @@ def initialize_processes(settings: Settings):
         processed_shape_queue, results_queue, StickerValidator(sticker_validator_params))
 
 
-# Modify the validation results handling in stream_images_async
 async def stream_images_async():
     global is_streaming, shape_queue, processed_shape_queue, results_queue
 
+    db = next(get_db())
+
     while is_streaming:
-        # Process raw frames
-        if not shape_queue.empty():
-            context = shape_queue.get()
-            await manager.broadcast_image(context.image, StreamType.RAW)
+        try:
+            if not shape_queue.empty():
+                context = shape_queue.get()
+                await manager.broadcast_image(context.image, StreamType.RAW)
 
-            if context.shape is not None:
-                shape_img = cv2.cvtColor(context.shape, cv2.COLOR_GRAY2BGR)
-                await manager.broadcast_image(shape_img, StreamType.SHAPE)
+                if context.shape is not None:
+                    shape_img = cv2.cvtColor(context.shape, cv2.COLOR_GRAY2BGR)
+                    await manager.broadcast_image(shape_img, StreamType.SHAPE)
 
-        # Process detected shapes
-        if not processed_shape_queue.empty():
-            context = processed_shape_queue.get()
-            if context.processed_image is not None:
-                await manager.broadcast_image(context.processed_image, StreamType.PROCESSED)
-
-                # Send object detection event
-                event_data = {
-                    "type": "object_detected",
-                    "timestamp": time.time(),
-                    "seq_number": context.seq_number
-                }
-                if StreamType.EVENTS in manager.active_connections:
-                    for connection in manager.active_connections[StreamType.EVENTS]:
-                        await connection.send_json(event_data)
-
-        # Process validation results
-        if not results_queue.empty():
-            context = results_queue.get()
-            if context.processed_image is not None and context.validation_results is not None:
-                # Send validation event with all details
-                validation_results = context.validation_results
-                event_data = {
-                    "type": "validation_result",
-                    "timestamp": time.time(),
-                    "seq_number": context.seq_number,
-                    "sticker_present": validation_results.sticker_present,
-                    "sticker_matches_design": validation_results.sticker_matches_design,
-                    "image": None,  # Will be set below if needed
-                }
-
-                # Optionally include the processed image in base64 format
+            if not processed_shape_queue.empty():
+                context = processed_shape_queue.get()
                 if context.processed_image is not None:
-                    _, encoded_img = cv2.imencode('.jpg', context.processed_image)
-                    base64_img = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
-                    event_data["image"] = base64_img
+                    await manager.broadcast_image(context.processed_image, StreamType.PROCESSED)
 
-                # Send to all event websocket connections
-                if StreamType.EVENTS in manager.active_connections:
-                    for connection in manager.active_connections[StreamType.EVENTS]:
-                        await connection.send_json(event_data)
+                    crud.create_object_detected_log(db, context.seq_number)
 
-        await asyncio.sleep(0.033)  # ~30fps
+                    event_data = {
+                        "type": "object_detected",
+                        "timestamp": time.time(),
+                        "seq_number": context.seq_number
+                    }
+                    if StreamType.EVENTS in manager.active_connections:
+                        for connection in manager.active_connections[StreamType.EVENTS]:
+                            await connection.send_json(event_data)
+
+            if not results_queue.empty():
+                context = results_queue.get()
+                if context.processed_image is not None and context.validation_results is not None:
+                    validation_results = context.validation_results
+
+                    crud.create_validation_result_log(
+                        db,
+                        context.seq_number,
+                        validation_results.sticker_present,
+                        validation_results.sticker_matches_design
+                    )
+
+                    base64_img = None
+                    if context.processed_image is not None:
+                        _, encoded_img = cv2.imencode('.jpg', context.processed_image)
+                        base64_img = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
+
+                    event_data = {
+                        "type": "validation_result",
+                        "timestamp": time.time(),
+                        "seq_number": context.seq_number,
+                        "sticker_present": validation_results.sticker_present,
+                        "sticker_matches_design": validation_results.sticker_matches_design,
+                        "image": base64_img
+                    }
+
+                    if StreamType.EVENTS in manager.active_connections:
+                        for connection in manager.active_connections[StreamType.EVENTS]:
+                            await connection.send_json(event_data)
+
+            await asyncio.sleep(0.033)  # ~30fps
+
+        except Exception as e:
+            # Log any errors that occur
+            error_message = str(e)
+            crud.create_error_log(db, error_message=error_message)
+            print(f"Error in stream processing: {error_message}")
+            await asyncio.sleep(1)
 
 
 def start_streaming():
@@ -180,13 +199,14 @@ def stop_streaming():
         if sticker_validator_process and sticker_validator_process.is_alive():
             sticker_validator_process.terminate()
 
-        # Re-initialize for next time
         settings = get_settings()
         initialize_processes(settings)
 
 
 @app.on_event("startup")
 async def startup_event():
+    from db.database import init_db
+    init_db()
     settings = get_settings()
     initialize_processes(settings)
 
@@ -343,7 +363,8 @@ async def set_sticker_parameters(sticker_params: dict):
     params = ValidationParams(
         sticker_design=image,
         center=(float(sticker_params["centerX"]), float(sticker_params["centerY"])),
-        size=(float(sticker_params["width"]), float(sticker_params["height"])),
+        sticker_size=(float(sticker_params["width"]), float(sticker_params["height"])),
+        battery_size=(float(sticker_params["width"]), float(sticker_params["height"])),
         rotation=float(sticker_params["rotation"])
     )
 
@@ -512,3 +533,67 @@ def get_example_html():
 </body>
 </html>
     """
+
+class LogEntryResponse(BaseModel):
+    id: int
+    timestamp: datetime.datetime
+    event_type: str
+    seq_number: int | None = None
+    sticker_present: bool | None = None
+    sticker_matches_design: bool | None = None
+    error_message: str | None = None
+    error_type: str | None = None
+    error_severity: str | None = None
+
+    model_config = {"from_attributes": True}
+
+class ErrorLogRequest(BaseModel):
+    """Request model for logging errors"""
+    message: str
+    error_type: str = "system"  # system, validation, camera, etc.
+    severity: str = "error"     # info, warning, error, critical
+    seq_number: int = None
+
+
+@app.get("/logs", response_model=List[LogEntryResponse])
+def get_logs(
+        skip: int = 0,
+        limit: int = 100,
+        event_type: str = Query(None, description="Filter by event type"),
+        db: Session = Depends(get_db)
+):
+    """Get a list of log entries with optional filtering"""
+    logs = crud.get_logs(db, skip=skip, limit=limit, event_type=event_type)
+    return logs
+
+
+@app.get("/logs/{log_id}", response_model=LogEntryResponse)
+def get_log(log_id: int, db: Session = Depends(get_db)):
+    """Get a specific log entry by ID"""
+    log = crud.get_log(db, log_id=log_id)
+    if log is None:
+        raise HTTPException(status_code=404, detail="Log not found")
+    return log
+
+@app.post("/logs/error", response_model=LogEntryResponse)
+def log_error(error_data: ErrorLogRequest, db: Session = Depends(get_db)):
+    """Manually log an error event"""
+    log_entry = crud.create_error_log(
+        db=db,
+        error_message=error_data.message,
+        error_type=error_data.error_type,
+        error_severity=error_data.severity,
+        seq_number=error_data.seq_number
+    )
+    return log_entry
+
+@app.get("/logs/range", response_model=List[LogEntryResponse])
+def get_logs_by_date_range_endpoint(
+    start_datetime: datetime.datetime = Query(..., description="Start date and time (inclusive)"),
+    end_datetime: datetime.datetime = Query(..., description="End date and time (inclusive)"),
+    event_type: str = Query(None, description="Filter by event type"),
+    db: Session = Depends(get_db)
+):
+    """Get logs between specific start and end datetimes"""
+    logs = crud.get_logs_by_date_range(db, start_datetime, end_datetime, event_type)
+    return logs

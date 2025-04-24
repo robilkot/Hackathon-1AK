@@ -14,7 +14,8 @@ class StickerValidator:
         self.__params = ValidationParams(
             sticker_design=sticker_params.sticker_design,
             center=sticker_params.center,
-            size=sticker_params.size,
+            sticker_size=sticker_params.sticker_size,
+            battery_size=sticker_params.battery_size,
             rotation=sticker_params.rotation
         )
 

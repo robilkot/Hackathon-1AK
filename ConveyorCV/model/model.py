@@ -9,8 +9,10 @@ import numpy as np
 class ValidationParams:
     sticker_design: np.ndarray
     center: tuple
-    size: tuple
+    sticker_size: tuple
+    battery_size: tuple
     rotation: float
+
 
 
 # todo: информация о позиционировании наклейки
