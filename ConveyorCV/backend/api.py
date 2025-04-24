@@ -1,205 +1,95 @@
 import asyncio
 import base64
-import time
-from pathlib import Path
-import os
+from multiprocess import Process, Queue
 
-import numpy as np
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, UploadFile, File, HTTPException, BackgroundTasks
 import cv2
-import threading
-import multiprocessing
-from multiprocessing import Queue
-import json
-
-from websocket_manager import WebSocketManager, StreamType
-from settings import Settings, get_settings, update_settings
+import numpy as np
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
 
 from Camera.CameraInterface import CameraInterface
-from Camera.VideoFileCamera import VideoFileCamera
 from Camera.IPCamera import IPCamera
+from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
-from main import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess
-from model.model import DetectionContext, ValidationParams
-from utils.downscale import downscale
+from model.model import ValidationParams, StreamingContext
+from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess
+from settings import Settings, get_settings, update_settings
+from websocket_manager import WebSocketManager, StreamType
 
-# Initialize FastAPI app
 app = FastAPI(title="Conveyor CV API")
 
-# Initialize WebSocket manager
+settings = get_settings()
+
+shape_queue = Queue()
+processed_shape_queue = Queue()
+results_queue = Queue()
+websocket_queue = Queue()
+
+camera: CameraInterface
+if settings.camera_type == "video":
+    camera = VideoFileCamera(settings.camera.video_path)
+else:
+    camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
+
+#todo delete if this is bullshit
+sticker_design = cv2.imread(settings.sticker_design_path)
+if sticker_design is None:
+    raise Exception("sticker_design not found")
+
+sticker_validator_params = ValidationParams(
+    sticker_design=sticker_design,
+    center=(sticker_design.shape[1] // 2, sticker_design.shape[0] // 2),
+    size=(sticker_design.shape[1], sticker_design.shape[0]),
+    rotation=0.0
+)
+
 manager = WebSocketManager()
-
-# Queues for communication between processes
-shape_queue = None
-processed_shape_queue = None
-results_queue = None
-
-# Event queue for sending detection events
-event_queue = Queue()
-
-# Processes
-shape_detector_process = None
-shape_processor_process = None
-sticker_validator_process = None
-
-# Flag to control streaming
-is_streaming = False
-streaming_task = None
-
-# Ensure data directories exist
-UPLOAD_DIR = Path("data/uploads")
-STICKER_DIR = Path("data/stickers")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(STICKER_DIR, exist_ok=True)
+detector = ShapeDetector()
+processor = ShapeProcessor()
+validator = StickerValidator(sticker_validator_params)
+shape_detector_process: Process = ShapeDetectorProcess(shape_queue, websocket_queue, camera, detector)
+shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
+sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
 
 
-def initialize_processes(settings: Settings):
-    global shape_queue, processed_shape_queue, results_queue, event_queue
-    global shape_detector_process, shape_processor_process, sticker_validator_process
-
-    # Initialize queues
-    shape_queue = multiprocessing.Queue()
-    processed_shape_queue = multiprocessing.Queue()
-    results_queue = multiprocessing.Queue()
-    event_queue = multiprocessing.Queue()
-
-    # Select camera based on settings
-    camera: CameraInterface
-    if settings.camera_type == "video":
-        camera = VideoFileCamera(settings.camera.video_path)
-    else:  # "ip"
-        camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
-
-    #todo delete if this is bullshit
-    sticker_design = cv2.imread(settings.sticker_design_path)
-    sticker_validator_params = ValidationParams(
-        sticker_design=sticker_design,
-        center=(sticker_design.shape[1] // 2, sticker_design.shape[0] // 2),
-        size=(sticker_design.shape[1], sticker_design.shape[0]),
-        rotation=0.0
-    )
-
-    # Initialize processes
-    shape_detector_process = ShapeDetectorProcess(
-        shape_queue, camera, ShapeDetector())
-
-    shape_processor_process = ShapeProcessorProcess(
-        shape_queue, processed_shape_queue, ShapeProcessor())
-
-    sticker_validator_process = StickerValidatorProcess(
-        processed_shape_queue, results_queue, StickerValidator(sticker_validator_params))
-
-
-# Modify the validation results handling in stream_images_async
 async def stream_images_async():
-    global is_streaming, shape_queue, processed_shape_queue, results_queue
+    while True:
+        try:
+            msg: StreamingContext = websocket_queue.get()
 
-    while is_streaming:
-        # Process raw frames
-        if not shape_queue.empty():
-            context = shape_queue.get()
-            await manager.broadcast_image(context.image, StreamType.RAW)
-
-            if context.shape is not None:
-                shape_img = cv2.cvtColor(context.shape, cv2.COLOR_GRAY2BGR)
-                await manager.broadcast_image(shape_img, StreamType.SHAPE)
-
-        # Process detected shapes
-        if not processed_shape_queue.empty():
-            context = processed_shape_queue.get()
-            if context.processed_image is not None:
-                await manager.broadcast_image(context.processed_image, StreamType.PROCESSED)
-
-                # Send object detection event
-                event_data = {
-                    "type": "object_detected",
-                    "timestamp": time.time(),
-                    "seq_number": context.seq_number
-                }
+            # todo is this too woodoo?
+            if msg.stream_type == StreamType.EVENTS:
                 if StreamType.EVENTS in manager.active_connections:
                     for connection in manager.active_connections[StreamType.EVENTS]:
-                        await connection.send_json(event_data)
-
-        # Process validation results
-        if not results_queue.empty():
-            context = results_queue.get()
-            if context.processed_image is not None and context.validation_results is not None:
-                # Send validation event with all details
-                validation_results = context.validation_results
-                event_data = {
-                    "type": "validation_result",
-                    "timestamp": time.time(),
-                    "seq_number": context.seq_number,
-                    "sticker_present": validation_results.sticker_present,
-                    "sticker_matches_design": validation_results.sticker_matches_design,
-                    "image": None,  # Will be set below if needed
-                }
-
-                # Optionally include the processed image in base64 format
-                if context.processed_image is not None:
-                    _, encoded_img = cv2.imencode('.jpg', context.processed_image)
-                    base64_img = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
-                    event_data["image"] = base64_img
-
-                # Send to all event websocket connections
-                if StreamType.EVENTS in manager.active_connections:
-                    for connection in manager.active_connections[StreamType.EVENTS]:
-                        await connection.send_json(event_data)
+                        await connection.send_json(msg.data)
+            else:
+                await manager.broadcast_image(msg.data, msg.stream_type)
+        except Exception as e:
+            print(f"exception: ", e)
+            raise e
 
         await asyncio.sleep(0.033)  # ~30fps
 
 
-def start_streaming():
-    global is_streaming, shape_detector_process, shape_processor_process, sticker_validator_process
+def start_processes():
+    shape_detector_process.start()
+    shape_processor_process.start()
+    sticker_validator_process.start()
+    print("Processes started")
 
-    if not is_streaming:
-        # Re-initialize processes if needed
-        settings = get_settings()
-        initialize_processes(settings)
-
-        shape_detector_process.start()
-        shape_processor_process.start()
-        sticker_validator_process.start()
-        is_streaming = True
-
-
-def stop_streaming():
-    global is_streaming, shape_detector_process, shape_processor_process, sticker_validator_process
-
-    if is_streaming:
-        is_streaming = False
-
-        # Terminate processes
-        if shape_detector_process and shape_detector_process.is_alive():
-            shape_detector_process.terminate()
-        if shape_processor_process and shape_processor_process.is_alive():
-            shape_processor_process.terminate()
-        if sticker_validator_process and sticker_validator_process.is_alive():
-            sticker_validator_process.terminate()
-
-        # Re-initialize for next time
-        settings = get_settings()
-        initialize_processes(settings)
-
-
-@app.on_event("startup")
-async def startup_event():
-    settings = get_settings()
-    initialize_processes(settings)
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    stop_streaming()
+def stop_processes():
+    # todo shitty impl
+    shape_detector_process.terminate()
+    shape_processor_process.terminate()
+    sticker_validator_process.terminate()
 
 
 @app.websocket("/ws/raw")
 async def websocket_raw(websocket: WebSocket):
-    await manager.connect(websocket, StreamType.RAW)
     try:
+        await manager.connect(websocket, StreamType.RAW)
         while True:
             await websocket.receive_text()  # Keep connection alive
     except WebSocketDisconnect:
@@ -213,7 +103,7 @@ async def websocket_shape(websocket: WebSocket):
         while True:
             await websocket.receive_text()  # Keep connection alive
     except WebSocketDisconnect:
-        manager.disconnect(websocket, StreamType.SHAPE)
+        await manager.disconnect(websocket, StreamType.SHAPE)
 
 
 @app.websocket("/ws/processed")
@@ -257,81 +147,29 @@ async def get_current_settings():
 
 @app.post("/settings", response_model=Settings)
 async def update_current_settings(settings: Settings):
-    was_streaming = is_streaming
-    if was_streaming:
-        stop_streaming()
-
-    # Update the settings
     updated = update_settings(settings)
 
-    # Reinitialize processes with new settings
-    initialize_processes(updated)
-
-    if was_streaming:
-        start_streaming()
+    # todo
 
     return updated
 
 
 @app.post("/stream/start")
 async def start_stream_endpoint(background_tasks: BackgroundTasks):
-    global is_streaming, streaming_task
-
-    if not is_streaming:
-        # Initialize processes
-        settings = get_settings()
-        initialize_processes(settings)
-
-        shape_detector_process.start()
-        shape_processor_process.start()
-        sticker_validator_process.start()
-        is_streaming = True
-
-        background_tasks.add_task(stream_images_async)
-
+    start_processes()
+    background_tasks.add_task(stream_images_async)
     return {"status": "streaming started"}
 
 
 @app.post("/stream/stop")
 async def stop_stream():
-    stop_streaming()
+    stop_processes()
+
     return {"status": "streaming stopped"}
-
-
-@app.post("/upload/sticker")
-async def upload_sticker(file: UploadFile = File(...)):
-    """Upload a new sticker design"""
-    if not file.filename.endswith(('.png', '.jpg', '.jpeg')):
-        raise HTTPException(400, detail="Only PNG and JPG images are allowed")
-
-    # Save the file
-    file_path = STICKER_DIR / file.filename
-    with open(file_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
-
-    # Update the settings to use the new sticker
-    settings = get_settings()
-    was_streaming = is_streaming
-
-    if was_streaming:
-        stop_streaming()
-
-    settings.sticker_design_path = str(file_path)
-    updated_settings = update_settings(settings)
-
-    # Reinitialize with new sticker
-    initialize_processes(updated_settings)
-
-    if was_streaming:
-        start_streaming()
-
-    return {"status": "success", "file_path": str(file_path)}
 
 
 @app.post("/sticker/parameters")
 async def set_sticker_parameters(sticker_params: dict):
-    """Set sticker parameters for validation"""
     global sticker_validator_process
 
     # Decode base64 image
@@ -347,20 +185,10 @@ async def set_sticker_parameters(sticker_params: dict):
         rotation=float(sticker_params["rotation"])
     )
 
-    # Update sticker validator parameters
-    was_streaming = is_streaming
-    if was_streaming:
-        stop_streaming()
-
     # We need to update the validator and restart
     sticker_validator_process.terminate()
-    sticker_validator = StickerValidator()
-    sticker_validator.set_parameters(params)
-    sticker_validator_process = StickerValidatorProcess(
-        processed_shape_queue, results_queue, sticker_validator)
-
-    if was_streaming:
-        start_streaming()
+    validator = StickerValidator(params)
+    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
 
     return {"status": "success", "message": "Sticker parameters updated"}
 

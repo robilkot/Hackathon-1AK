@@ -26,6 +26,8 @@ class WebSocketManager:
 
     async def connect(self, websocket: WebSocket, stream_type: StreamType):
         await websocket.accept()
+        if self.active_connections.get(stream_type, None) is None:
+            self.active_connections[stream_type] = []
         self.active_connections[stream_type].append(websocket)
 
         # Send the latest image if available

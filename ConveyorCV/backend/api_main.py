@@ -24,5 +24,5 @@ app.openapi = custom_openapi
 
 if __name__ == "__main__":
     port = int(os.getenv("API_PORT", "8000"))
-    print(f"API documentation available at http://0.0.0.0:{port}/docs")
+    print(f"API documentation available at http://localhost:{port}/docs")
     uvicorn.run("api_main:app", host="0.0.0.0", port=port, reload=True)

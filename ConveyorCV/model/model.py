@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import datetime
 import numpy as np
 
+from backend.websocket_manager import StreamType
+
 
 # todo: информация о позиционировании наклейки
 @dataclass
@@ -32,3 +34,8 @@ class DetectionContext:
     shape: np.ndarray | None = None  # BW mask
     processed_image: np.ndarray | None = None  # Aligned and cropped image
     validation_results: ValidationResults | None = None
+
+@dataclass
+class StreamingContext:
+    data: any
+    stream_type: StreamType
