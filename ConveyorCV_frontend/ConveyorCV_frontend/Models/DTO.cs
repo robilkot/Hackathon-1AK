@@ -18,5 +18,4 @@ namespace ConveyorCV_frontend.Models
         public Dictionary<string, object> Size { get; set; }
         public double? Rotation { get; set; }
     }
-    
 }

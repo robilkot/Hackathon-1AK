@@ -4,75 +4,241 @@
 	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
-	mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    xmlns:paz="using:Avalonia.Controls.PanAndZoom"
+	xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters;assembly=ConveyorCV_frontend"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 	x:Class="ConveyorCV_frontend.Views.StickerParametersView"
 	x:DataType="vm:StickerParametersViewModel">
+	<UserControl.Resources>
+		<converters:StickerParametersToYConverter
+            x:Key="StickerParametersToYConverter"/>
+		<converters:StickerParametersToXConverter
+            x:Key="StickerParametersToXConverter"/>
+	</UserControl.Resources>
+
 	<Design.DataContext>
 		<vm:StickerParametersViewModel/>
 	</Design.DataContext>
 	
 	<Panel>
-		<TextBlock
-			VerticalAlignment="Center"
-			HorizontalAlignment="Center"
-			Text="Макет наклейки на аккумуляторе"/>
-
-		<Border
-			Grid.Row="1"
-			Grid.Column="1"
-			Width="{Binding AccSize.Width}"
-			Height="{Binding AccSize.Height}"
-			BorderThickness="2"
-			BorderBrush="Black"
-			HorizontalAlignment="Center"
-			VerticalAlignment="Center">
-			<Panel>
-				<TextBlock
-					VerticalAlignment="Top"
-					Margin="0 5"
-					HorizontalAlignment="Center"
-					Text="{Binding AccSize.Width}">
+		<StackPanel
+			ZIndex="3"
+			Spacing="10"
+			Background="Orange"
+			VerticalAlignment="Top"
+			HorizontalAlignment="Left">
+			<TextBlock
+				HorizontalAlignment="Center"
+				FontSize="20"
+				Text="Параметры макета"/>
+			<Grid
+				RowDefinitions="auto, auto"
+				ColumnDefinitions="auto, *">
+				<TextBlock 
+					Grid.Column="0"
+					Text="Файл: "/>
+				<TextBlock Grid.Column="1"
+					Text="{Binding ImagePath, StringFormat='{}{0:No image}', FallbackValue='не выбран'}">
 				</TextBlock>
+				<Button 
+					Grid.Row="1" 
+					Grid.ColumnSpan="2"
+					HorizontalAlignment="Stretch"
+					HorizontalContentAlignment="Center"
+					Command="{Binding SelectImageCommand}"
+					Content="Открыть файл"/>
+			</Grid>
 
+			<Grid
+				RowDefinitions="auto, auto, 10, auto, auto, auto, auto, auto"
+				ColumnDefinitions="auto, *">
+				
 				<TextBlock
-					HorizontalAlignment="Left"
+					Grid.Row="0"
+					Grid.Column="0"
 					VerticalAlignment="Center"
-					Text="{Binding AccSize.Height}">
-					<TextBlock.RenderTransform>
-						<RotateTransform
-							Angle="-90"/>
-					</TextBlock.RenderTransform>
-				</TextBlock>
-			</Panel>
-		</Border>
-
-		<Border
-			Grid.Row="1"
-			Grid.Column="1"
-			Width="{Binding StickerSize.Width}"
-			Height="{Binding StickerSize.Height}"
-			BorderThickness="2"
-			BorderBrush="Black"
-			HorizontalAlignment="Center"
-			VerticalAlignment="Center">
-			<Panel>
-				<TextBlock
-					VerticalAlignment="Top"
-					Margin="0 5"
-					HorizontalAlignment="Center"
-					Text="{Binding StickerSize.Width}">
-				</TextBlock>
+					Text="Длина аккумулятора: "/>
+				<NumericUpDown
+					Grid.Row="0"
+					Grid.Column="1"
+					FormatString="0.0"
+					VerticalContentAlignment="Center"
+					Value="{Binding AccSize.Width}"/>
 
 				<TextBlock
-					HorizontalAlignment="Left"
+					Grid.Row="1"
+					Grid.Column="0"
 					VerticalAlignment="Center"
-					Text="{Binding StickerSize.Height}">
-					<TextBlock.RenderTransform>
-						<RotateTransform
-							Angle="-90"/>
-					</TextBlock.RenderTransform>
-				</TextBlock>
-			</Panel>
-		</Border>
+					Text="Высота аккумулятора: "/>
+				<NumericUpDown
+					Grid.Row="1"
+					Grid.Column="1"
+					FormatString="0.0"
+					VerticalContentAlignment="Center"
+					Value="{Binding AccSize.Height}"/>
+
+
+				<TextBlock
+					Grid.Row="3"
+					Grid.Column="0"
+					VerticalAlignment="Center"
+					Text="Длина наклейки: "/>
+				<NumericUpDown
+					Grid.Row="3"
+					Grid.Column="1"
+					FormatString="0.0"
+					VerticalContentAlignment="Center"
+					Value="{Binding StickerSize.Width}"/>
+
+				<TextBlock
+					Grid.Row="4"
+					Grid.Column="0"
+					VerticalAlignment="Center"
+					Text="Высота наклейки: "/>
+				<NumericUpDown
+					Grid.Row="4"
+					Grid.Column="1"
+					FormatString="0.0"
+					VerticalContentAlignment="Center"
+					Value="{Binding StickerSize.Height}"/>
+
+
+				<TextBlock
+					Grid.Row="5"
+					Grid.Column="0"
+					VerticalAlignment="Center"
+					Text="Поворот наклейки: "/>
+				<NumericUpDown
+					Grid.Row="5"
+					Grid.Column="1"
+					FormatString="0.0"
+					Increment="0.1"
+					VerticalContentAlignment="Center"
+					Value="{Binding Rotation}"/>
+
+
+				<TextBlock
+					Grid.Row="6"
+					Grid.Column="0"
+					VerticalAlignment="Center"
+					Text="Центр наклейки (X): "/>
+				<NumericUpDown
+					Grid.Row="6"
+					Grid.Column="1"
+					FormatString="0.0"
+					VerticalContentAlignment="Center"
+					Value="{Binding Center.X}"/>
+
+				<TextBlock
+					Grid.Row="7"
+					Grid.Column="0"
+					VerticalAlignment="Center"
+					Text="Центр наклейки (Y): "/>
+				<NumericUpDown
+					Grid.Row="7"
+					Grid.Column="1"
+					FormatString="0.0"
+					VerticalContentAlignment="Center"
+					Value="{Binding Center.Y}"/>
+			</Grid>
+		</StackPanel>
+
+		<paz:ZoomBorder 
+			Name="ZoomBorder" 
+			Stretch="None"
+			ZoomSpeed="1.2"
+			ClipToBounds="True" 
+			Focusable="True"
+			VerticalAlignment="Stretch" 
+			HorizontalAlignment="Stretch">
+			<Border
+				x:Name="AccBorder"
+				Margin="50"
+				Grid.Row="1"
+				Grid.Column="1"
+				Width="{Binding AccSize.Width}"
+				Height="{Binding AccSize.Height}"
+				BorderThickness="2"
+				BorderBrush="Black"
+				HorizontalAlignment="Stretch"
+				VerticalAlignment="Stretch">
+				<Panel>
+					<!--<TextBlock
+						VerticalAlignment="Top"
+						Margin="0 5"
+						HorizontalAlignment="Center"
+						Text="{Binding AccSize.Width}">
+					</TextBlock>
+
+					<TextBlock
+						HorizontalAlignment="Left"
+						VerticalAlignment="Center"
+						Text="{Binding AccSize.Height}">
+						<TextBlock.RenderTransform>
+							<RotateTransform
+								Angle="-90"/>
+						</TextBlock.RenderTransform>
+					</TextBlock>-->
+
+					<Border
+						x:Name="StickerBorder"
+						Grid.Row="1"
+						Grid.Column="1"
+						Width="{Binding StickerSize.Width}"
+						Height="{Binding StickerSize.Height}"
+						HorizontalAlignment="Left"
+						VerticalAlignment="Top"
+						BorderThickness="2"
+						BorderBrush="Black">
+						<Border.RenderTransform>
+							<TransformGroup>
+								<RotateTransform
+									Angle="{Binding Rotation}"/>
+								<TranslateTransform>
+									<TranslateTransform.X>
+										<MultiBinding Converter="{StaticResource StickerParametersToXConverter}">
+											<Binding Path="Center.X"/>
+											<Binding Path="StickerSize"/>
+										</MultiBinding>
+									</TranslateTransform.X>
+									<TranslateTransform.Y>
+										<MultiBinding Converter="{StaticResource StickerParametersToYConverter}">
+											<Binding Path="Center.Y"/>
+											<Binding Path="StickerSize"/>
+										</MultiBinding>
+									</TranslateTransform.Y>
+								</TranslateTransform>
+							</TransformGroup>
+						</Border.RenderTransform>
+						<Panel>
+							<Image
+								Source="{Binding Image}"/>
+							
+							<TextBlock
+								HorizontalAlignment="Center"
+								VerticalAlignment="Center"
+								IsVisible="{Binding Image, Converter={x:Static ObjectConverters.IsNull}}"
+								Text="Макет не выбран"/>
+							
+							<!--<TextBlock
+								VerticalAlignment="Top"
+								HorizontalAlignment="Center"
+								Text="{Binding StickerSize.Width}">
+							</TextBlock>
+
+							<TextBlock
+								HorizontalAlignment="Left"
+								VerticalAlignment="Center"
+								Text="{Binding StickerSize.Height}">
+								<TextBlock.RenderTransform>
+									<RotateTransform
+										Angle="-90"/>
+								</TextBlock.RenderTransform>
+							</TextBlock>-->
+						</Panel>
+					</Border>
+				</Panel>
+			</Border>
+		</paz:ZoomBorder>
 	</Panel>
 </UserControl>
