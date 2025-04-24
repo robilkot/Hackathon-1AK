@@ -3,11 +3,12 @@ using System.Drawing;
 
 namespace ConveyorCV_frontend.Models
 {
-    public record StickerParameters(
-        byte[] Image, 
-        PointF Center, 
-        SizeF Size, 
-        double Rotation
+    public record StickerValidationParameters(
+        byte[] Image,
+        PointF StickerCenter,
+        SizeF AccSize,
+        SizeF StickerSize,
+        double StickerRotation
         );
 
     public record StickerValidationResult(

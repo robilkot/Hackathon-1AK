@@ -1,8 +1,8 @@
 ﻿using Avalonia.Media.Imaging;
+using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using ReactiveUI;
 using System;
-using System.Drawing;
 using System.IO;
 using System.Reactive;
 using System.Threading.Tasks;
@@ -11,8 +11,8 @@ namespace ConveyorCV_frontend.ViewModels;
 
 public class StickerParametersViewModel : ViewModelBase
 {
-    private string _imagePath;
-    public string ImagePath
+    private string? _imagePath = null;
+    public string? ImagePath
     {
         get => _imagePath;
         set => this.RaiseAndSetIfChanged(ref _imagePath, value);
@@ -25,8 +25,8 @@ public class StickerParametersViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _image, value);
     }
 
-    private PointViewModel? _center = new(300f, 200f);
-    public PointViewModel? Center
+    private PointViewModel _center = new(300f, 200f);
+    public PointViewModel Center
     {
         get => _center;
         set
@@ -58,12 +58,15 @@ public class StickerParametersViewModel : ViewModelBase
     }
 
     public ReactiveCommand<Unit, Unit> SelectImageCommand { get; }
+    public ReactiveCommand<Unit, Unit> ApplyParametersCommand { get; }
+    public ReactiveCommand<Unit, Unit> FetchParametersCommand { get; }
 
     public StickerParametersViewModel()
     {
         SelectImageCommand = ReactiveCommand.CreateFromTask(SelectImage);
+        ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParameters);
+        FetchParametersCommand = ReactiveCommand.CreateFromTask(FetchParameters);
 
-        // Подписываемся на изменения размеров
         StickerSize.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(SizeViewModel.Width))
@@ -75,6 +78,30 @@ public class StickerParametersViewModel : ViewModelBase
                 UpdateWidth();
             }
         };
+    }
+
+    // fetches current parameters from backend. should be called on startup and on button click (button does not exist yet)
+    private async Task FetchParameters()
+    {
+        // todo
+    }
+
+    // todo ensure that Image is not null (subscribe CanExecute of this command to validator or smth)
+    private async Task ApplyParameters()
+    {
+        using var stream = new MemoryStream();
+        Image.Save(stream);
+        byte[] imageBytes = stream.ToArray();
+
+        var parameters = new StickerValidationParameters(
+            imageBytes,
+            new((float)Center.X, (float)Center.Y),
+            new((float)AccSize.Width, (float)AccSize.Height),
+            new((float)StickerSize.Width, (float)StickerSize.Height),
+            Rotation
+            );
+
+        // todo send this to backend. ensure ok status code
     }
 
     private async Task SelectImage()
@@ -101,7 +128,7 @@ public class StickerParametersViewModel : ViewModelBase
             }
             catch (Exception ex)
             {
-                // todo
+                Console.WriteLine($"Exception: {ex.Message}");
             }
         }
     }
@@ -112,7 +139,7 @@ public class StickerParametersViewModel : ViewModelBase
         {
             var aspectRatio = Image.Size.AspectRatio;
             var newHeight = StickerSize.Width / aspectRatio;
-            StickerSize.Height = newHeight;
+            StickerSize.Height = (float)newHeight;
         }
 
         Center?.RaisePropertyChanged(nameof(Center.Y));
@@ -124,7 +151,7 @@ public class StickerParametersViewModel : ViewModelBase
         {
             var aspectRatio = Image.Size.AspectRatio;
             var newWidth = StickerSize.Height * aspectRatio;
-            StickerSize.Width = newWidth;
+            StickerSize.Width = (float)newWidth;
         }
 
         Center?.RaisePropertyChanged(nameof(Center.X));

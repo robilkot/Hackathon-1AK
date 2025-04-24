@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace ConveyorCV_frontend.Services
 {
+#pragma warning disable CS0618 // Type or member is obsolete
     public static class DialogService
     {
         // todo smells shit
@@ -55,4 +56,5 @@ namespace ConveyorCV_frontend.Services
             return path;
         }
     }
+#pragma warning restore CS0618 // Type or member is obsolete
 }

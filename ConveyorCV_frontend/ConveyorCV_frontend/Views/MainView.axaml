@@ -45,6 +45,7 @@
 					VerticalAlignment="Bottom"
 					Background="White"
 					Padding="2"
+					Margin="0 0 0 5"
 					CornerRadius="5">
 					<StackPanel
 						ZIndex="1"

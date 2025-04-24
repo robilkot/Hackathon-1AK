@@ -45,7 +45,7 @@
 						Grid.Column="0"
 						Text="Файл: "/>
 					<TextBlock Grid.Column="1"
-						Text="{Binding ImagePath, StringFormat='{}{0:No image}', FallbackValue='не выбран'}">
+						Text="{Binding ImagePath, StringFormat='{}{0}', TargetNullValue='не выбран'}">
 					</TextBlock>
 					<Button 
 						Grid.Row="1" 

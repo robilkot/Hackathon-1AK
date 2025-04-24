@@ -36,34 +36,26 @@ namespace ConveyorCV_frontend.Services
             if (streamType != "events")
                 return;
 
-            try
+            if (eventData is Dictionary<string, object> data)
             {
-                if (eventData is Dictionary<string, object> data)
+                string eventType = data.GetString("type")!;
+                Console.WriteLine($"Event type: {eventType}");
+
+                if (eventType == "validation_result")
                 {
-                    string eventType = data.GetString("type")!;
-                    Console.WriteLine($"Event type: {eventType}");
+                    var result = new StickerValidationResult(
+                        Convert.FromBase64String(data.GetString("image")!),
+                        DateTimeOffset.Now, //(data, "timestamp"), // todo deserialize timestamp
+                        data.GetInt("seq_number")!.Value,
+                        data.GetBool("sticker_present")!.Value,
+                        data.GetBool("sticker_matches_design"),
+                        new(), // todo deserialize size
+                        new(), // todo deserialize location
+                        data.GetDouble("rotation")
+                    );
 
-                    if (eventType == "validation_result")
-                    {
-                        var result = new StickerValidationResult(
-                            Convert.FromBase64String(data.GetString("image")!),
-                            DateTimeOffset.Now, //(data, "timestamp"),
-                            data.GetInt("seq_number")!.Value,
-                            data.GetBool("sticker_present")!.Value,
-                            data.GetBool("sticker_matches_design"),
-                            new(), // todo
-                            new(), // todo
-                            data.GetDouble("rotation")
-                        );
-
-                        ValidationResultReceived?.Invoke(result);
-                    }
+                    ValidationResultReceived?.Invoke(result);
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error processing event: {ex.Message}");
-                // todo handle
             }
         }
     }
