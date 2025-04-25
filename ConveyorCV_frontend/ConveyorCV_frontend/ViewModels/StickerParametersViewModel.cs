@@ -93,7 +93,7 @@ public class StickerParametersViewModel : ViewModelBase
         Image.Save(stream);
         byte[] imageBytes = stream.ToArray();
 
-        var parameters = new StickerValidationParameters(
+        var parameters = new StickerValidationParametersDTO(
             imageBytes,
             new((float)Center.X, (float)Center.Y),
             new((float)AccSize.Width, (float)AccSize.Height),

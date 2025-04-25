@@ -1,56 +1,36 @@
-import time
-from typing import Dict, List
-import asyncio
+import json
+
 from fastapi import WebSocket
-import base64
-import cv2
-import numpy as np
-from enum import Enum, auto
 
-from backend.stream_type import StreamType
-
-last_broadcast_time = {}
+from model.model import StreamingMessage, DefaultJsonEncoder
 
 
 class WebSocketManager:
     def __init__(self):
-        self.active_connections: Dict[StreamType, List[WebSocket]] = {
-            stream_type: [] for stream_type in StreamType
-        }
-        self.latest_images: Dict[StreamType, np.ndarray] = {}
+        self.active_connections: list[WebSocket] = []
+        self.latest_message: StreamingMessage | None = None
 
-    async def connect(self, websocket: WebSocket, stream_type: StreamType):
+    async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        if self.active_connections.get(stream_type, None) is None:
-            self.active_connections[stream_type] = []
-        self.active_connections[stream_type].append(websocket)
+        self.active_connections.append(websocket)
 
-        # Send the latest image if available
-        if stream_type in self.latest_images and self.latest_images[stream_type] is not None:
-            await self.send_image(websocket, self.latest_images[stream_type])
+        if self.latest_message is not None:
+            await self.__send_message(websocket, self.latest_message)
 
-    def disconnect(self, websocket: WebSocket, stream_type: StreamType):
-        self.active_connections[stream_type].remove(websocket)
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
 
-    @staticmethod
-    async def send_image(websocket: WebSocket, image: np.ndarray):
-        encode_params = [cv2.IMWRITE_JPEG_QUALITY, 75]
-        _, encoded_img = cv2.imencode('.jpg', image, encode_params)
-        base64_img = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
-        await websocket.send_json({"image": base64_img})
+    async def __send_message(self, ws, msg):
+        try:
+            msg_json = json.dumps(msg, cls=DefaultJsonEncoder)
+            await ws.send_bytes(msg_json)
+        except Exception as e:
+            print('FUCK json, ', str(e))
+            await ws.close()
+            self.active_connections.remove(ws)
 
-    async def broadcast_image(self, image: np.ndarray, stream_type: StreamType):
-        current_time = time.time()
-        if stream_type in last_broadcast_time and current_time - last_broadcast_time[stream_type] < 0.1:
-            return
+    async def broadcast_message(self, message: StreamingMessage):
+        self.latest_message = message
 
-        last_broadcast_time[stream_type] = current_time
-        self.latest_images[stream_type] = image
-
-
-        for connection in self.active_connections[stream_type]:
-            try:
-                await self.send_image(connection, image)
-            except Exception:
-                await connection.close()
-                self.active_connections[stream_type].remove(connection)
+        for ws in self.active_connections:
+            await self.__send_message(ws, message)

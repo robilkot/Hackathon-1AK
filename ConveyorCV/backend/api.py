@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import datetime
 from multiprocessing import Queue, Process
 
 import cv2
@@ -13,14 +14,15 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
-from model.model import ValidationParams, StreamingContext
+from model.model import ValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess
 from settings import Settings, get_settings, update_settings
-from websocket_manager import WebSocketManager, StreamType
+from websocket_manager import WebSocketManager
 
 app = FastAPI(title="Conveyor CV API")
 settings = get_settings()
 
+manager = WebSocketManager()
 shape_queue = Queue()
 processed_shape_queue = Queue()
 results_queue = Queue()
@@ -47,27 +49,29 @@ sticker_validator_params = ValidationParams(
 detector = ShapeDetector()
 processor = ShapeProcessor()
 validator = StickerValidator(sticker_validator_params)
-shape_detector_process: Process = ShapeDetectorProcess(shape_queue, websocket_queue, camera, detector)
+shape_detector_process: Process = ShapeDetectorProcess(shape_queue, websocket_queue, camera, detector, 20)
 shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
 sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
 
 
 async def stream_images_async():
+    last_time = datetime.datetime.now()
     while True:
         try:
-            msg: StreamingContext = websocket_queue.get()
+            msg: StreamingMessage = websocket_queue.get()
 
-            # todo is this too woodoo?
-            if msg.stream_type == StreamType.EVENTS:
-                if StreamType.EVENTS in manager.active_connections:
-                    for connection in manager.active_connections[StreamType.EVENTS]:
-                        await connection.send_json(msg.data)
-            else:
-                await manager.broadcast_image(msg.data, msg.stream_type)
+            await manager.broadcast_message(msg)
         except Exception as e:
             print(f"exception: ", e)
             raise e
 
+        current_time = datetime.datetime.now()
+        if current_time - last_time > datetime.timedelta(seconds=2):
+            last_time = current_time
+            print('shape_queue: ', shape_queue.qsize())
+            print('processed_shape_queue: ', processed_shape_queue.qsize())
+            print('results_queue: ', results_queue.qsize())
+            print('websocket_queue: ', websocket_queue.qsize())
         await asyncio.sleep(0.033)  # ~30fps
 
 
@@ -84,58 +88,15 @@ def stop_processes():
     sticker_validator_process.terminate()
 
 
-@app.websocket("/ws/raw")
-async def websocket_raw(websocket: WebSocket):
+@app.websocket("/ws")
+async def websocket_connect(websocket: WebSocket):
     try:
-        await manager.connect(websocket, StreamType.RAW)
+        await manager.connect(websocket)
         while True:
             await websocket.receive_text()  # Keep connection alive
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, StreamType.RAW)
-
-
-@app.websocket("/ws/shape")
-async def websocket_shape(websocket: WebSocket):
-    await manager.connect(websocket, StreamType.SHAPE)
-    try:
-        while True:
-            await websocket.receive_text()  # Keep connection alive
-    except WebSocketDisconnect:
-        await manager.disconnect(websocket, StreamType.SHAPE)
-
-
-@app.websocket("/ws/processed")
-async def websocket_processed(websocket: WebSocket):
-    await manager.connect(websocket, StreamType.PROCESSED)
-    try:
-        while True:
-            await websocket.receive_text()  # Keep connection alive
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, StreamType.PROCESSED)
-
-
-@app.websocket("/ws/validation")
-async def websocket_validation(websocket: WebSocket):
-    await manager.connect(websocket, StreamType.VALIDATION)
-    try:
-        while True:
-            await websocket.receive_text()  # Keep connection alive
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, StreamType.VALIDATION)
-
-
-@app.websocket("/ws/events")
-async def websocket_events(websocket: WebSocket):
-    """WebSocket endpoint for detection events and notifications"""
-    await websocket.accept()
-    manager.active_connections.setdefault(StreamType.EVENTS, []).append(websocket)
-    try:
-        while True:
-            await websocket.receive_text()  # Keep connection alive
-    except WebSocketDisconnect:
-        if StreamType.EVENTS in manager.active_connections:
-            if websocket in manager.active_connections[StreamType.EVENTS]:
-                manager.active_connections[StreamType.EVENTS].remove(websocket)
+    except WebSocketDisconnect as e:
+        manager.disconnect(websocket)
+        raise e
 
 
 @app.get("/settings", response_model=Settings)
@@ -151,7 +112,6 @@ async def update_current_settings(settings: Settings):
 
     return updated
 
-manager = WebSocketManager()
 @app.post("/stream/start")
 async def start_stream_endpoint(background_tasks: BackgroundTasks):
     start_processes()

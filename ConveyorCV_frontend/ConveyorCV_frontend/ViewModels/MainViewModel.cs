@@ -5,6 +5,7 @@ using ConveyorCV_frontend.ViewModels;
 using ReactiveUI;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Reactive;
 using System.Threading.Tasks;
 
@@ -53,7 +54,7 @@ public class MainViewModel : ViewModelBase
     public MainViewModel()
     {
         _webSocketService = new WebSocketService();
-        _webSocketService.ImageReceived += OnImageReceived;
+        _webSocketService.MessageReceived += _webSocketService_MessageReceived;
         _webSocketService.ConnectionClosed += OnConnectionClosed;
         _webSocketService.ErrorOccurred += OnErrorOccurred;
 
@@ -64,6 +65,18 @@ public class MainViewModel : ViewModelBase
         StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync);
     }
 
+    private void _webSocketService_MessageReceived(StreamingMessage obj)
+    {
+        if (obj.Type != StreamingMessageType.RAW || obj.Content is not ImageStreamingMessageContent imageContent)
+            return;
+
+        var bytes = imageContent.ToImageBytes();
+
+        using var stream = new MemoryStream(bytes);
+
+        RawImage = new(stream);
+    }
+
     private async Task StartStreamAsync()
     {
         try
@@ -72,12 +85,7 @@ public class MainViewModel : ViewModelBase
                 return;
 
             Status = StreamStatus.Connecting;
-            await _webSocketService.ConnectAsync("/ws/raw", "raw");
-
-            // todo review. seems shit
-            // Let validation view handle its own connections
-            await ValidationResult.ConnectAsync();
-
+            await _webSocketService.ConnectAsync();
             Status = StreamStatus.Starting;
             await _webSocketService.StartStreamAsync();
             IsStreaming = true;
@@ -100,10 +108,7 @@ public class MainViewModel : ViewModelBase
             Status = StreamStatus.Stopping;
             await _webSocketService.StopStreamAsync();
 
-            await _webSocketService.DisconnectAsync("raw");
-
-            // Let validation view handle its own disconnections
-            await ValidationResult.DisconnectAsync();
+            await _webSocketService.DisconnectAsync();
 
             IsStreaming = false;
             Status = StreamStatus.Disconnected;
@@ -111,30 +116,21 @@ public class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             Status = StreamStatus.Error;
-            Console.WriteLine("Stream exception: ", ex.Message);
+            Debug.WriteLine("Stream exception: ", ex.Message);
         }
     }
 
-    private void OnImageReceived(string streamType, Bitmap image)
+    private void OnConnectionClosed()
     {
-        if (streamType == "raw")
-        {
-            RawImage = image;
-        }
+        Status = StreamStatus.LostConnection;
+        IsStreaming = false;
     }
 
-    private void OnConnectionClosed(string streamType)
-    {
-        if (streamType == "raw")
-        {
-            Status = StreamStatus.LostConnection;
-            IsStreaming = false;
-        }
-    }
-
-    private void OnErrorOccurred(string streamType, Exception ex)
+    private void OnErrorOccurred(Exception ex)
     {
         Status = StreamStatus.Error;
-        Console.WriteLine("Stream exception: ", ex.Message);
+        Debug.WriteLine("Stream exception: ", ex.Message);
+        
+        throw ex;
     }
 }

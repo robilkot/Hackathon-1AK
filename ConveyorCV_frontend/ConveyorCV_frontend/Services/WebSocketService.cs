@@ -1,27 +1,27 @@
+using ConveyorCV_frontend.Models;
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia.Media.Imaging;
-using System.IO;
-using System.Net.Http;
 
 namespace ConveyorCV_frontend.Services
 {
     public class WebSocketService : IDisposable
     {
-        private readonly Dictionary<string, ClientWebSocket> _webSockets = new();
-        private readonly Dictionary<string, CancellationTokenSource> _tokenSources = new();
         private readonly string _baseUrl;
         private readonly HttpClient _httpClient;
 
-        public event Action<string, Bitmap> ImageReceived;
-        public event Action<string, object> EventReceived;
-        public event Action<string, Exception> ErrorOccurred;
-        public event Action<string> ConnectionClosed;
+        private ClientWebSocket? _webSocket = null;
+        private CancellationTokenSource? _tokenSource = null;
+
+        public event Action<StreamingMessage>? MessageReceived;
+        public event Action<Exception>? ErrorOccurred;
+        public event Action? ConnectionClosed;
 
         public WebSocketService(string baseUrl = "localhost:8000")
         {
@@ -29,51 +29,47 @@ namespace ConveyorCV_frontend.Services
             _httpClient = new HttpClient();
         }
 
-        public async Task ConnectAsync(string path, string streamType)
+        public async Task ConnectAsync()
         {
-            // Disconnect if already connected
-            await DisconnectAsync(streamType);
-            
-            // Create new connection
-            var webSocket = new ClientWebSocket();
-            var tokenSource = new CancellationTokenSource();
-            var uri = new Uri($"ws://{_baseUrl}{path}");
-            
+            if (_webSocket is not null && _webSocket.State == WebSocketState.Open)
+            {
+                throw new InvalidOperationException();
+            }
+
+            _webSocket = new ClientWebSocket();
+            _tokenSource = new CancellationTokenSource();
+            var uri = new Uri($"ws://{_baseUrl}/ws");
+
             try
             {
-                await webSocket.ConnectAsync(uri, tokenSource.Token);
-                _webSockets[streamType] = webSocket;
-                _tokenSources[streamType] = tokenSource;
-                
-                // Start receiving messages
-                _ = ReceiveMessagesAsync(webSocket, tokenSource.Token, streamType);
+                await _webSocket.ConnectAsync(uri, _tokenSource.Token);
+
+                _ = ReceiveMessagesAsync(_webSocket, _tokenSource.Token);
             }
             catch (Exception ex)
             {
-                ErrorOccurred?.Invoke(streamType, ex);
+                ErrorOccurred?.Invoke(ex);
                 throw;
             }
         }
 
-        public async Task DisconnectAsync(string streamType)
+        public async Task DisconnectAsync()
         {
-            if (_webSockets.TryGetValue(streamType, out var webSocket))
+            if (_webSocket is not null && _webSocket.State == WebSocketState.Open)
             {
-                if (webSocket.State == WebSocketState.Open)
+                try
                 {
-                    try
-                    {
-                        // Send close handshake
-                        var closeToken = new CancellationTokenSource(TimeSpan.FromSeconds(2)).Token;
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", closeToken);
-                    }
-                    catch { /* Ignore errors during close */ }
+                    var closeToken = new CancellationTokenSource(TimeSpan.FromSeconds(2)).Token;
+                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", closeToken);
                 }
-
-                _tokenSources[streamType]?.Cancel();
-                _webSockets.Remove(streamType);
-                _tokenSources.Remove(streamType);
+                catch { /* Ignore errors during close */ }
             }
+
+            _tokenSource?.Cancel();
+            _tokenSource?.Dispose();
+            _tokenSource = null;
+            _webSocket?.Dispose();
+            _webSocket = null;
         }
 
         public async Task StartStreamAsync()
@@ -85,7 +81,7 @@ namespace ConveyorCV_frontend.Services
             }
             catch (Exception ex)
             {
-                ErrorOccurred?.Invoke("api", ex);
+                ErrorOccurred?.Invoke(ex);
                 throw;
             }
         }
@@ -99,115 +95,90 @@ namespace ConveyorCV_frontend.Services
             }
             catch (Exception ex)
             {
-                ErrorOccurred?.Invoke("api", ex);
+                ErrorOccurred?.Invoke(ex);
                 throw;
             }
         }
 
-        private async Task ReceiveMessagesAsync(ClientWebSocket webSocket, CancellationToken token, string streamType)
-{
-    var buffer = new byte[16384]; // Larger buffer for image data
-    
-    try
-    {
-        while (webSocket.State == WebSocketState.Open && !token.IsCancellationRequested)
+        private async Task ReceiveMessagesAsync(ClientWebSocket webSocket, CancellationToken token)
         {
-            using var memoryStream = new MemoryStream();
-            WebSocketReceiveResult result;
-            
-            do
-            {
-                result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), token);
-                if (result.Count > 0)
-                    await memoryStream.WriteAsync(buffer, 0, result.Count, token);
-            } while (!result.EndOfMessage && !token.IsCancellationRequested);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-            if (token.IsCancellationRequested)
-                break;
-                
-            if (result.MessageType == WebSocketMessageType.Close)
-            {
-                await webSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-                ConnectionClosed?.Invoke(streamType);
-                break;
-            }
+            var buffer = new byte[16384]; // Larger buffer for image data
 
-            if (result.MessageType == WebSocketMessageType.Text)
+            try
             {
-                memoryStream.Position = 0;
-                using var reader = new StreamReader(memoryStream, Encoding.UTF8);
-                string message = await reader.ReadToEndAsync();
-                
-                Console.WriteLine($"Received WebSocket message on {streamType}: {message.Substring(0, Math.Min(100, message.Length))}...");
-                
-                try
+                while (webSocket.State == WebSocketState.Open && !token.IsCancellationRequested)
                 {
-                    // Parse as JSON object
-                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    Dictionary<string, object> eventData = JsonSerializer.Deserialize<Dictionary<string, object>>(message, options);
-                    
-                    if (eventData != null)
+                    using var memoryStream = new MemoryStream();
+                    WebSocketReceiveResult result;
+
+                    do
                     {
-                        // Handle as an event (works for both image and event messages now)
-                        EventReceived?.Invoke(streamType, eventData);
-                        
-                        // Also handle image field if present - for backward compatibility
-                        if (eventData.TryGetValue("image", out var imageValue) && imageValue is JsonElement imageElement && 
-                            imageElement.ValueKind == JsonValueKind.String)
+                        result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), token);
+                        if (result.Count > 0)
+                            await memoryStream.WriteAsync(buffer, 0, result.Count, token);
+                    } while (!result.EndOfMessage && !token.IsCancellationRequested);
+
+                    if (token.IsCancellationRequested)
+                        break;
+
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        await webSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                        ConnectionClosed?.Invoke();
+                        break;
+                    }
+
+                    if (result.MessageType == WebSocketMessageType.Text)
+                    {
+                        memoryStream.Position = 0;
+                        using var reader = new StreamReader(memoryStream, Encoding.UTF8);
+                        string json_message = await reader.ReadToEndAsync(token);
+
+                        try
                         {
-                            string base64Image = imageElement.GetString();
-                            if (!string.IsNullOrEmpty(base64Image))
+                            var message = JsonSerializer.Deserialize<StreamingMessageDto>(json_message, options);
+
+                            StreamingMessageContent content = message!.type switch
                             {
-                                try
-                                {
-                                    byte[] imageData = Convert.FromBase64String(base64Image);
-                                    using var imageStream = new MemoryStream(imageData);
-                                    var bitmap = new Bitmap(imageStream);
-                                    ImageReceived?.Invoke(streamType, bitmap);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine($"Failed to process image: {ex.Message}");
-                                }
-                            }
+                                StreamingMessageType.VALIDATION => JsonSerializer.Deserialize<ValidationStreamingMessageContent>(message.content, options)!,
+                                StreamingMessageType.RAW or StreamingMessageType.SHAPE or StreamingMessageType.PROCESSED
+                                    => JsonSerializer.Deserialize<ImageStreamingMessageContent>(message.content, options)!,
+                                _ => throw new NotImplementedException()
+                            };
+
+                            MessageReceived?.Invoke(new StreamingMessage() { Type = message.type, Content = content });
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to parse message: {ex.Message}");
+                            ErrorOccurred?.Invoke(new Exception($"Failed to parse message: {ex.Message}", ex));
                         }
                     }
                 }
-                catch (Exception ex)
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal cancellation, don't report as error
+                ConnectionClosed?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"WebSocket error: {ex.Message}");
+                if (!token.IsCancellationRequested)
                 {
-                    Console.WriteLine($"Failed to parse message: {ex.Message}");
-                    ErrorOccurred?.Invoke(streamType, 
-                        new Exception($"Failed to parse message: {ex.Message}", ex));
+                    ErrorOccurred?.Invoke(ex);
                 }
+                ConnectionClosed?.Invoke();
             }
         }
-    }
-    catch (OperationCanceledException)
-    {
-        // Normal cancellation, don't report as error
-        ConnectionClosed?.Invoke(streamType);
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"WebSocket error: {ex.Message}");
-        if (!token.IsCancellationRequested)
-        {
-            ErrorOccurred?.Invoke(streamType, ex);
-        }
-        ConnectionClosed?.Invoke(streamType);
-    }
-}
 
         public void Dispose()
         {
-            foreach (var streamType in new List<string>(_webSockets.Keys))
-            {
-                _tokenSources[streamType]?.Cancel();
-                _webSockets[streamType]?.Dispose();
-            }
-            
-            _webSockets.Clear();
-            _tokenSources.Clear();
+            _tokenSource?.Cancel();
+            _tokenSource?.Dispose();
+            _webSocket?.Dispose();
             _httpClient?.Dispose();
         }
     }

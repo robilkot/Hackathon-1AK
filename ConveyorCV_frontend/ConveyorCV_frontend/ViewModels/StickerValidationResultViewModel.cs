@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -11,10 +12,8 @@ namespace ConveyorCV_frontend.ViewModels
 {
     public class StickerValidationResultViewModel : ViewModelBase
     {
-        private readonly ValidationService _validationService;
-
-        private StickerValidationResult? _lastResult;
-        public StickerValidationResult? LastResult
+        private StickerValidationResultDTO? _lastResult;
+        public StickerValidationResultDTO? LastResult
         {
             get => _lastResult;
             set => this.RaiseAndSetIfChanged(ref _lastResult, value);
@@ -76,11 +75,36 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _detectionTime, value);
         }
 
-
         public StickerValidationResultViewModel(WebSocketService webSocketService)
         {
-            _validationService = new ValidationService(webSocketService);
-            _validationService.ValidationResultReceived += OnValidationResultReceived;
+            webSocketService.MessageReceived += WebSocketService_MessageReceived;
+        }
+
+        private void WebSocketService_MessageReceived(StreamingMessage obj)
+        {
+            if (obj.Content is not ValidationStreamingMessageContent validationMessage)
+                return;
+
+            var result = validationMessage.validation_result;
+
+            using (var ms = new MemoryStream(result.Image))
+            {
+                var bitmap = new Bitmap(ms);
+                if (bitmap != null)
+                {
+                    Image = bitmap;
+                }
+            }
+
+            StickerPresent = result.Sticker_Present;
+            StickerMatchesDesign = result.Sticker_Matches_Design;
+            StickerLocation = result.Sticker_Position.HasValue ? new(result.Sticker_Position.Value) : null;
+            StickerSize = new(result.Sticker_Size);
+            Rotation = result.Sticker_Rotation;
+            SeqNumber = result.SeqNumber;
+            DetectionTime = result.Timestamp;
+
+            LastResult = result;
         }
 
         public StickerValidationResultViewModel()
@@ -91,38 +115,6 @@ namespace ConveyorCV_frontend.ViewModels
             }
 
             LastResult = new([], new(), 0, true, false, new(), new(), 5);
-        }
-
-        public async Task ConnectAsync()
-        {
-            await _validationService.ConnectAsync();
-        }
-
-        public async Task DisconnectAsync()
-        {
-            await _validationService.DisconnectAsync();
-        }
-
-        private void OnValidationResultReceived(StickerValidationResult result)
-        {
-            using (var ms = new MemoryStream(result.Image))
-            {
-                var bitmap = new Bitmap(ms);
-                if (bitmap != null)
-                {
-                    Image = bitmap;
-                }
-            }
-
-            StickerPresent = result.StickerPresent;
-            StickerMatchesDesign = result.StickerMatchesDesign;
-            StickerLocation = result.StickerLocation.HasValue ? new(result.StickerLocation.Value) : null;
-            StickerSize = new(result.StickerSize);
-            Rotation = result.Rotation;
-            SeqNumber = result.SeqNumber;
-            DetectionTime = result.Timestamp;
-
-            LastResult = result;
         }
     }
 }

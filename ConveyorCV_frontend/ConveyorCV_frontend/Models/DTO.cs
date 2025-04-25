@@ -3,7 +3,7 @@ using System.Drawing;
 
 namespace ConveyorCV_frontend.Models
 {
-    public record StickerValidationParameters(
+    public record StickerValidationParametersDTO(
         byte[] Image,
         PointF StickerCenter,
         SizeF AccSize,
@@ -11,14 +11,14 @@ namespace ConveyorCV_frontend.Models
         double StickerRotation
         );
 
-    public record StickerValidationResult(
+    public record StickerValidationResultDTO(
         byte[] Image,
         DateTimeOffset Timestamp,
         int SeqNumber,
-        bool StickerPresent,
-        bool? StickerMatchesDesign,
-        SizeF StickerSize,
-        PointF? StickerLocation,
-        double? Rotation
+        bool Sticker_Present,
+        bool? Sticker_Matches_Design,
+        SizeF Sticker_Size,
+        PointF? Sticker_Position,
+        double? Sticker_Rotation
         );
 }

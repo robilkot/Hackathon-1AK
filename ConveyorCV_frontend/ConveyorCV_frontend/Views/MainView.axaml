@@ -41,6 +41,7 @@
 			<Panel
 				Background="Black">
 				<Border
+					ZIndex="2"
 					HorizontalAlignment="Center"
 					VerticalAlignment="Bottom"
 					Background="White"
@@ -71,7 +72,9 @@
 					</StackPanel>
 				</Border>
 				<Image
+					ZIndex="0"
 					Grid.Row="0"
+					IsVisible="{Binding Status, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:StreamStatus.Running}}"
 					VerticalAlignment="Stretch"
 					HorizontalAlignment="Stretch"
 					Stretch="Uniform"
