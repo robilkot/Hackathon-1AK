@@ -59,6 +59,7 @@ public class MainViewModel : ViewModelBase
         _webSocketService.ErrorOccurred += OnErrorOccurred;
 
         StickerParameters = new StickerParametersViewModel();
+        _ = StickerParameters.InitializeAsync();
         ValidationResult = new StickerValidationResultViewModel(_webSocketService);
 
         StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync);

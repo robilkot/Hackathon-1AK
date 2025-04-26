@@ -39,11 +39,13 @@ sticker_design = cv2.imread(settings.sticker_design_path)
 if sticker_design is None:
     raise Exception("sticker_design not found")
 
+#todo make it correct
 sticker_validator_params = ValidationParams(
     sticker_design=sticker_design,
-    center=(sticker_design.shape[1] // 2, sticker_design.shape[0] // 2),
-    size=(sticker_design.shape[1], sticker_design.shape[0]),
-    rotation=0.0
+    sticker_center=(50.0, 50.0),  # Default center point
+    acc_size=(200.0, 200.0),    # Default acceptable size
+    sticker_size=(100.0, 100.0),  # Default sticker size
+    sticker_rotation=0.0        # Default rotation angle
 )
 
 detector = ShapeDetector()
@@ -124,6 +126,11 @@ async def stop_stream():
     stop_processes()
     return {"status": "streaming stopped"}
 
+#todo create endpoint to get validator params
+@app.get("/sticker/parameters")
+async def get_sticker_parameters():
+    params = validator.get_parameters()
+    return params.to_dict()
 
 @app.post("/sticker/parameters")
 async def set_sticker_parameters(sticker_params: dict):
@@ -134,12 +141,13 @@ async def set_sticker_parameters(sticker_params: dict):
     image_array = np.frombuffer(image_bytes, dtype=np.uint8)
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
+    print("Sticker params: ",sticker_params)
     # Create StickerParameters object
     params = ValidationParams(
         sticker_design=image,
-        center=(float(sticker_params["centerX"]), float(sticker_params["centerY"])),
-        size=(float(sticker_params["width"]), float(sticker_params["height"])),
-        rotation=float(sticker_params["rotation"])
+        sticker_center=(float(sticker_params["centerX"]), float(sticker_params["centerY"])),
+        sticker_size=(float(sticker_params["width"]), float(sticker_params["height"])),
+        sticker_rotation=float(sticker_params["rotation"]),
     )
 
     # We need to update the validator and restart

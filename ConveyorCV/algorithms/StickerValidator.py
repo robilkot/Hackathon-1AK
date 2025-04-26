@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import cv2
 
 from algorithms.InvariantTM import invariant_match_template
@@ -13,10 +15,15 @@ class StickerValidator:
         """Set the validation parameters for the sticker validator"""
         self.__params = ValidationParams(
             sticker_design=sticker_params.sticker_design,
-            center=sticker_params.center,
-            size=sticker_params.size,
-            rotation=sticker_params.rotation
+            sticker_center=sticker_params.sticker_center,
+            sticker_size=sticker_params.sticker_size,
+            sticker_rotation=sticker_params.sticker_rotation,
+            acc_size= sticker_params.acc_size
         )
+
+    def get_parameters(self) -> ValidationParams:
+        """Get the current validation parameters from the sticker validator"""
+        return self.__params
 
     def validate(self, context: DetectionContext) -> DetectionContext:
         assert(context.processed_image is not None)
@@ -36,7 +43,28 @@ class StickerValidator:
 
         # todo различать случай когда наклейка есть, но неверный дизайн
         sticker_present = len(points_list) > 0
-        sticker_location = points_list[0] if sticker_present else None
-        context.validation_results = ValidationResults(sticker_present, sticker_present, sticker_location)
+        if sticker_present and points_list[0]:
+            position_tuple = points_list[0][0]
+            rotation = points_list[0][1]
+            scale = points_list[0][2]
+            confidence = points_list[0][3]
+            sticker_width = None
+            sticker_height = None
+            size_tuple = (float(sticker_width), float(sticker_height))
+
+            context.validation_results = ValidationResults(
+                sticker_present=sticker_present,
+                sticker_matches_design=sticker_present,
+                sticker_position=position_tuple,
+                sticker_rotation=float(rotation),
+                sticker_size=size_tuple,
+                seq_number=context.seq_number if hasattr(context, 'seq_number') else 0,
+                timestamp=datetime.now()
+            )
+        else:
+            context.validation_results = ValidationResults(
+                sticker_present=False,
+                sticker_matches_design=False
+            )
 
         return context

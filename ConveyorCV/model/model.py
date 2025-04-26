@@ -2,6 +2,7 @@ import abc
 import base64
 import json
 from dataclasses import dataclass
+from typing import Optional, Tuple, Union
 
 from datetime import datetime
 from json import JSONEncoder
@@ -14,19 +15,47 @@ import numpy as np
 @dataclass
 class ValidationParams:
     sticker_design: np.ndarray
-    center: tuple
-    size: tuple
-    rotation: float
+    sticker_center: Tuple[float, float]
+    acc_size: Tuple[float, float]
+    sticker_size: Tuple[float, float]
+    sticker_rotation: float
+
+    def to_dict(self):
+        """Convert ValidationParams to a serializable dictionary matching C# DTO structure"""
+        if self.sticker_design is not None:
+            _, encoded_img = cv2.imencode('.png', self.sticker_design)
+            image_bytes = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
+        else:
+            image_bytes = None
+
+        return {
+            "Image": image_bytes,
+            "StickerCenter": {
+                "X": float(self.sticker_center[0]),
+                "Y": float(self.sticker_center[1])
+            },
+            "AccSize": {
+                "Width": float(self.acc_size[0]),
+                "Height": float(self.acc_size[1])
+            },
+            "StickerSize": {
+                "Width": float(self.sticker_size[0]),
+                "Height": float(self.sticker_size[1])
+            },
+            "StickerRotation": float(self.sticker_rotation)
+        }
 
 
 @dataclass
 class ValidationResults:
     sticker_present: bool
-    sticker_matches_design: bool | None
-    sticker_image: np.ndarray | None = None  # Captured sticker image
-    sticker_position: tuple | None = None  # Center position
-    sticker_size: tuple| None = None  # Width and height
-    sticker_rotation: float | None = None
+    sticker_matches_design: Optional[bool] = None
+    sticker_image: Optional[bytes] = None
+    timestamp: datetime = None
+    seq_number: int = 0
+    sticker_position: Optional[Tuple[float, float]] = None
+    sticker_size: Optional[Tuple[float, float]] = None
+    sticker_rotation: Optional[float] = None
 
 
 @dataclass
