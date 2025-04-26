@@ -62,7 +62,10 @@ namespace ConveyorCV_frontend.Services
                     var closeToken = new CancellationTokenSource(TimeSpan.FromSeconds(2)).Token;
                     await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", closeToken);
                 }
-                catch { /* Ignore errors during close */ }
+                catch
+                {
+                    /* Ignore errors during close */
+                }
             }
 
             _tokenSource?.Cancel();
@@ -125,7 +128,8 @@ namespace ConveyorCV_frontend.Services
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        await webSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                        await webSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing",
+                            CancellationToken.None);
                         ConnectionClosed?.Invoke();
                         break;
                     }
@@ -135,24 +139,64 @@ namespace ConveyorCV_frontend.Services
                         memoryStream.Position = 0;
                         using var reader = new StreamReader(memoryStream, Encoding.UTF8);
                         string json_message = await reader.ReadToEndAsync(token);
+                        Debug.WriteLine(
+                            $"[WebSocketService] Raw message: {json_message.Substring(0, Math.Min(json_message.Length, 200))}...");
 
                         try
                         {
                             var message = JsonSerializer.Deserialize<StreamingMessageDto>(json_message, options);
+                            Debug.WriteLine($"[WebSocketService] Message envelope type: {message!.type}");
 
-                            StreamingMessageContent content = message!.type switch
+                            StreamingMessageContent content;
+
+                            if (message.type == StreamingMessageType.VALIDATION)
                             {
-                                StreamingMessageType.VALIDATION => JsonSerializer.Deserialize<ValidationStreamingMessageContent>(message.content, options)!,
-                                StreamingMessageType.RAW or StreamingMessageType.SHAPE or StreamingMessageType.PROCESSED
-                                    => JsonSerializer.Deserialize<ImageStreamingMessageContent>(message.content, options)!,
-                                _ => throw new NotImplementedException()
-                            };
+                                Debug.WriteLine($"[WebSocketService] Processing VALIDATION message");
+                                Debug.WriteLine(
+                                    $"[WebSocketService] Content to deserialize: {message.content.Substring(0, Math.Min(message.content.Length, 200))}...");
+                                
+                                var validationContent =
+                                    JsonSerializer.Deserialize<ValidationStreamingMessageContent>(message.content,
+                                        options);
+                                
+                                Debug.WriteLine($"[WebSocketService] Validation deserialization result:");
+                                Debug.WriteLine(
+                                    $"  - StickerPresent: {validationContent?.ValidationResult?.StickerPresent}");
+                                Debug.WriteLine(
+                                    $"  - StickerMatchesDesign: {validationContent?.ValidationResult?.StickerMatchesDesign}");
+                                Debug.WriteLine(
+                                    $"  - StickerPosition: {validationContent?.ValidationResult?.StickerPosition}");
+                                Debug.WriteLine($"  - StickerSize: {validationContent?.ValidationResult?.StickerSize}");
+                                Debug.WriteLine(
+                                    $"  - StickerRotation: {validationContent?.ValidationResult?.StickerRotation}");
+                                Debug.WriteLine($"  - SeqNumber: {validationContent?.ValidationResult?.SeqNumber}");
+                                Debug.WriteLine(
+                                    $"  - Image length: {validationContent?.ValidationResult?.Image?.Length ?? 0} bytes");
+
+                                content = validationContent!;
+                            }
+                            else if (message.type == StreamingMessageType.RAW ||
+                                     message.type == StreamingMessageType.SHAPE ||
+                                     message.type == StreamingMessageType.PROCESSED)
+                            {
+                                Debug.WriteLine($"[WebSocketService] Processing {message.type} message");
+                                content = JsonSerializer.Deserialize<ImageStreamingMessageContent>(message.content,
+                                    options)!;
+                                Debug.WriteLine(
+                                    $"[WebSocketService] Image content length: {(content as ImageStreamingMessageContent)?.image?.Length ?? 0} chars");
+                            }
+                            else
+                            {
+                                throw new NotImplementedException($"Unsupported message type: {message.type}");
+                            }
 
                             MessageReceived?.Invoke(new StreamingMessage() { Type = message.type, Content = content });
+                            Debug.WriteLine($"[WebSocketService] Message processed and event fired");
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Failed to parse message: {ex.Message}");
+                            Debug.WriteLine($"[WebSocketService] Failed to parse message: {ex.Message}");
+                            Debug.WriteLine($"[WebSocketService] Exception details: {ex}");
                             ErrorOccurred?.Invoke(new Exception($"Failed to parse message: {ex.Message}", ex));
                         }
                     }
@@ -170,6 +214,7 @@ namespace ConveyorCV_frontend.Services
                 {
                     ErrorOccurred?.Invoke(ex);
                 }
+
                 ConnectionClosed?.Invoke();
             }
         }

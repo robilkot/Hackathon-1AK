@@ -11,6 +11,8 @@ import cv2
 import numpy as np
 
 
+
+
 # todo: информация о позиционировании наклейки
 @dataclass
 class ValidationParams:
@@ -50,13 +52,45 @@ class ValidationParams:
 class ValidationResults:
     sticker_present: bool
     sticker_matches_design: Optional[bool] = None
-    sticker_image: Optional[bytes] = None
-    timestamp: datetime = None
-    seq_number: int = 0
+    sticker_image: np.ndarray | None = None
     sticker_position: Optional[Tuple[float, float]] = None
     sticker_size: Optional[Tuple[float, float]] = None
     sticker_rotation: Optional[float] = None
+    seq_number: int = 0
+    detected_at: datetime = datetime.now()
 
+    def to_dict(self):
+        """Convert to a format matching C# StickerValidationResultDTO"""
+        image_bytes = None
+        if self.sticker_image is not None:
+            _, encoded_img = cv2.imencode('.png', self.sticker_image)
+            image_bytes = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
+
+        timestamp = self.detected_at.isoformat() if isinstance(self.detected_at, datetime) else datetime.now().isoformat()
+        sticker_position = None
+        if self.sticker_position:
+            sticker_position = {
+                "X": float(self.sticker_position[0]),
+                "Y": float(self.sticker_position[1])
+            }
+
+        sticker_size = None
+        if self.sticker_size:
+            sticker_size = {
+                "Width": float(self.sticker_size[0]),
+                "Height": float(self.sticker_size[1])
+            }
+
+        return {
+            "Image": image_bytes,
+            "Timestamp": timestamp,
+            "SeqNumber": self.seq_number,
+            "StickerPresent": self.sticker_present,
+            "StickerMatchesDesign": self.sticker_matches_design,
+            "StickerSize": sticker_size,
+            "StickerPosition": sticker_position,
+            "StickerRotation": float(self.sticker_rotation) if self.sticker_rotation is not None else None
+        }
 
 @dataclass
 class DetectionContext:
@@ -78,7 +112,10 @@ class StreamingMessageType(IntEnum):
     VALIDATION = 4
 
 class StreamingMessageContent(abc.ABC):
-    pass
+    @abc.abstractmethod
+    def to_dict(self):
+        """Convert to a serializable dictionary format"""
+        pass
 
 class DefaultJsonEncoder(JSONEncoder):
     def default(self, o):
@@ -90,12 +127,20 @@ class ImageStreamingMessageContent(StreamingMessageContent):
         _, encoded_img = cv2.imencode('.jpg', image, encode_params)
         self.image: str = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
 
+    def to_dict(self):
+        return {"image": self.image}
+
+
 @dataclass
 class ValidationStreamingMessageContent(StreamingMessageContent):
     validation_result: ValidationResults
+
+    def to_dict(self):
+        """Convert to a format matching C# ValidationStreamingMessageContent"""
+        return {"ValidationResult": self.validation_result.to_dict()}
 
 
 class StreamingMessage:
     def __init__(self, type: StreamingMessageType, content: StreamingMessageContent) -> None:
         self.type = type
-        self.content = json.dumps(content, cls=DefaultJsonEncoder)
+        self.content = json.dumps(content.to_dict(), cls=DefaultJsonEncoder)

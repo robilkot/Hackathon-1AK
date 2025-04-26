@@ -70,10 +70,10 @@ async def stream_images_async():
         current_time = datetime.datetime.now()
         if current_time - last_time > datetime.timedelta(seconds=2):
             last_time = current_time
-            print('shape_queue: ', shape_queue.qsize())
-            print('processed_shape_queue: ', processed_shape_queue.qsize())
-            print('results_queue: ', results_queue.qsize())
-            print('websocket_queue: ', websocket_queue.qsize())
+            # print('shape_queue: ', shape_queue.qsize())
+            # print('processed_shape_queue: ', processed_shape_queue.qsize())
+            # print('results_queue: ', results_queue.qsize())
+            # print('websocket_queue: ', websocket_queue.qsize())
         await asyncio.sleep(0.033)  # ~30fps
 
 
@@ -126,7 +126,6 @@ async def stop_stream():
     stop_processes()
     return {"status": "streaming stopped"}
 
-#todo create endpoint to get validator params
 @app.get("/sticker/parameters")
 async def get_sticker_parameters():
     params = validator.get_parameters()
@@ -141,16 +140,16 @@ async def set_sticker_parameters(sticker_params: dict):
     image_array = np.frombuffer(image_bytes, dtype=np.uint8)
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
-    print("Sticker params: ",sticker_params)
-    # Create StickerParameters object
+    # Create StickerParameters object - now with acc_size
     params = ValidationParams(
         sticker_design=image,
         sticker_center=(float(sticker_params["centerX"]), float(sticker_params["centerY"])),
         sticker_size=(float(sticker_params["width"]), float(sticker_params["height"])),
+        acc_size=(float(sticker_params.get("accWidth", 200)), float(sticker_params.get("accHeight", 200))),  # Added missing parameter
         sticker_rotation=float(sticker_params["rotation"]),
     )
 
-    # We need to update the validator and restart
+    # Update the validator and restart
     sticker_validator_process.terminate()
     validator = StickerValidator(params)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
@@ -183,8 +182,7 @@ def get_example_html():
     <div>
         <button id="startBtn">Start Streaming</button>
         <button id="stopBtn">Stop Streaming</button>
-        <input type="file" id="stickerUpload" accept=".jpg,.jpeg,.png">
-        <button id="uploadBtn">Upload Sticker</button>
+        <button id="getParamsBtn">Get Sticker Parameters</button>
     </div>
     <div class="grid">
         <div class="stream">
@@ -202,7 +200,6 @@ def get_example_html():
         <div>
             <h2>Latest Validation</h2>
             <div id="validationResults">Waiting for validation results...</div>
-            <img id="validationImage" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
         </div>
     </div>
     <h2>Detection Events</h2>
@@ -210,96 +207,126 @@ def get_example_html():
 
     <script>
         const host = window.location.host;
+        let ws = null;
 
-        // Stream WebSockets
-        const rawWs = new WebSocket(`ws://${host}/ws/raw`);
-        const shapeWs = new WebSocket(`ws://${host}/ws/shape`);
-        const processedWs = new WebSocket(`ws://${host}/ws/processed`);
-        const eventsWs = new WebSocket(`ws://${host}/ws/events`);
+        // Message types
+        const TYPE_RAW = 1;
+        const TYPE_SHAPE = 2;
+        const TYPE_PROCESSED = 3;
+        const TYPE_VALIDATION = 4;
 
-        // Images
-        const rawImg = document.getElementById('rawStream');
-        const shapeImg = document.getElementById('shapeStream');
-        const processedImg = document.getElementById('processedStream');
-        const validationImg = document.getElementById('validationImage');
-        const validationResults = document.getElementById('validationResults');
-        const eventsDiv = document.getElementById('events');
+        // Connect to WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://${host}/ws`);
 
-        // Process received messages
-        rawWs.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.image) rawImg.src = 'data:image/jpeg;base64,' + data.image;
-        };
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                addEvent('WebSocket connected');
+            };
 
-        shapeWs.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.image) shapeImg.src = 'data:image/jpeg;base64,' + data.image;
-        };
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                addEvent('WebSocket disconnected');
+                // Attempt to reconnect after a delay
+                setTimeout(connectWebSocket, 2000);
+            };
 
-        processedWs.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.image) processedImg.src = 'data:image/jpeg;base64,' + data.image;
-        };
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addEvent('WebSocket error: ' + error);
+            };
 
-        eventsWs.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            const timestamp = new Date(data.timestamp * 1000).toLocaleTimeString();
-            let message = '';
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    const type = message.type;
+                    const contentObj = JSON.parse(message.content);
 
-            if (data.type === 'object_detected') {
-                message = `[${timestamp}] Object detected: #${data.seq_number}`;
-            } else if (data.type === 'validation_result') {
-                message = `[${timestamp}] Validation #${data.seq_number}: Sticker present: ${data.sticker_present}, Matches design: ${data.sticker_matches_design}`;
-                
-                // Update validation results div
-                validationResults.textContent = `Object #${data.seq_number}: ${data.sticker_present ? 'Sticker present' : 'No sticker'}, ${data.sticker_matches_design ? 'Valid design' : 'Invalid design'}`;
-                validationResults.className = data.sticker_matches_design ? 'valid' : 'invalid';
-                
-                // Update validation image if available
-                if (data.image) {
-                    validationImg.src = 'data:image/jpeg;base64,' + data.image;
+                    switch (type) {
+                        case TYPE_RAW:
+                            document.getElementById('rawStream').src = 'data:image/jpeg;base64,' + contentObj.image;
+                            break;
+
+                        case TYPE_SHAPE:
+                            document.getElementById('shapeStream').src = 'data:image/jpeg;base64,' + contentObj.image;
+                            break;
+
+                        case TYPE_PROCESSED:
+                            document.getElementById('processedStream').src = 'data:image/jpeg;base64,' + contentObj.image;
+                            break;
+
+                        case TYPE_VALIDATION:
+                            handleValidationResult(contentObj.validation_result);
+                            break;
+
+                        default:
+                            console.log('Unknown message type:', type);
+                    }
+                } catch (e) {
+                    console.error('Error parsing message:', e);
+                    console.error('Raw message:', event.data);
                 }
-            }
+            };
+        }
 
-            if (message) {
-                const div = document.createElement('div');
-                div.textContent = message;
-                eventsDiv.appendChild(div);
-                eventsDiv.scrollTop = eventsDiv.scrollHeight;
-            }
-        };
+        function handleValidationResult(result) {
+            const validationResults = document.getElementById('validationResults');
+
+            const stickerPresent = result.sticker_present;
+            const stickerMatchesDesign = result.sticker_matches_design;
+            const seqNumber = result.seq_number;
+
+            validationResults.textContent = `Object #${seqNumber}: ${stickerPresent ? 'Sticker present' : 'No sticker'}, ${stickerMatchesDesign ? 'Valid design' : 'Invalid design'}`;
+            validationResults.className = stickerMatchesDesign ? 'valid' : 'invalid';
+
+            addEvent(`[${new Date().toLocaleTimeString()}] Validation #${seqNumber}: Sticker present: ${stickerPresent}, Matches design: ${stickerMatchesDesign}`);
+        }
+
+        function addEvent(message) {
+            const div = document.createElement('div');
+            div.textContent = message;
+            document.getElementById('events').appendChild(div);
+            document.getElementById('events').scrollTop = document.getElementById('events').scrollHeight;
+        }
+
+        // Initialize WebSocket connection
+        connectWebSocket();
 
         // Button handlers
         document.getElementById('startBtn').addEventListener('click', async () => {
-            const response = await fetch('/stream/start', { method: 'POST' });
-            const result = await response.json();
-            console.log(result);
+            try {
+                const response = await fetch('/stream/start', { method: 'POST' });
+                const result = await response.json();
+                console.log(result);
+                addEvent(`Stream started: ${JSON.stringify(result)}`);
+            } catch (e) {
+                console.error('Error starting stream:', e);
+                addEvent(`Error starting stream: ${e.message}`);
+            }
         });
 
         document.getElementById('stopBtn').addEventListener('click', async () => {
-            const response = await fetch('/stream/stop', { method: 'POST' });
-            const result = await response.json();
-            console.log(result);
+            try {
+                const response = await fetch('/stream/stop', { method: 'POST' });
+                const result = await response.json();
+                console.log(result);
+                addEvent(`Stream stopped: ${JSON.stringify(result)}`);
+            } catch (e) {
+                console.error('Error stopping stream:', e);
+                addEvent(`Error stopping stream: ${e.message}`);
+            }
         });
 
-        document.getElementById('uploadBtn').addEventListener('click', async () => {
-            const fileInput = document.getElementById('stickerUpload');
-            if (!fileInput.files.length) {
-                alert('Please select a file first');
-                return;
+        document.getElementById('getParamsBtn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/sticker/parameters');
+                const result = await response.json();
+                console.log(result);
+                addEvent(`Sticker parameters: ${JSON.stringify(result)}`);
+            } catch (e) {
+                console.error('Error getting parameters:', e);
+                addEvent(`Error getting parameters: ${e.message}`);
             }
-
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-
-            const response = await fetch('/upload/sticker', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-            console.log(result);
-            alert(`Sticker uploaded: ${result.file_path}`);
         });
     </script>
 </body>

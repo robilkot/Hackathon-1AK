@@ -48,8 +48,8 @@ class StickerValidator:
             rotation = points_list[0][1]
             scale = points_list[0][2]
             confidence = points_list[0][3]
-            sticker_width = None
-            sticker_height = None
+            sticker_width = 0.0
+            sticker_height = 0.0
             size_tuple = (float(sticker_width), float(sticker_height))
 
             context.validation_results = ValidationResults(
@@ -58,8 +58,8 @@ class StickerValidator:
                 sticker_position=position_tuple,
                 sticker_rotation=float(rotation),
                 sticker_size=size_tuple,
-                seq_number=context.seq_number if hasattr(context, 'seq_number') else 0,
-                timestamp=datetime.now()
+                sticker_image=context.processed_image,
+                seq_number=context.seq_number,
             )
         else:
             context.validation_results = ValidationResults(

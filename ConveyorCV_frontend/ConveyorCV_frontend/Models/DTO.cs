@@ -13,12 +13,12 @@ namespace ConveyorCV_frontend.Models
 
     public record StickerValidationResultDTO(
         byte[] Image,
-        DateTimeOffset Timestamp,
-        int SeqNumber,
-        bool Sticker_Present,
-        bool? Sticker_Matches_Design,
-        SizeF Sticker_Size,
-        PointF? Sticker_Position,
-        double? Sticker_Rotation
+        DateTimeOffset? Timestamp,
+        int? SeqNumber,
+        bool? StickerPresent,
+        bool? StickerMatchesDesign,
+        SizeF? StickerSize,
+        PointF? StickerPosition,
+        double? StickerRotation
         );
 }

@@ -57,9 +57,6 @@ public class StickerParametersService
             
             var json = await response.Content.ReadAsStringAsync();
             var parameters = JsonSerializer.Deserialize<StickerValidationParametersDTO>(json, _jsonOptions);
-            Console.WriteLine($"Received parameters: {json}");
-            Console.WriteLine($"Received parameters: {parameters}");
-            Console.WriteLine($"Image byte array length: {parameters.Image?.Length ?? 0}");
             StatusChanged?.Invoke("Параметры наклейки получены");
             return parameters;
         }
