@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -16,7 +17,35 @@ namespace ConveyorCV_frontend.ViewModels
         public StickerValidationResultDTO? LastResult
         {
             get => _lastResult;
-            set => this.RaiseAndSetIfChanged(ref _lastResult, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _lastResult, value);
+        
+                if (value != null)
+                {
+                    StickerPresent = value.StickerPresent ?? false;
+                    StickerMatchesDesign = value.StickerMatchesDesign;
+                    StickerLocation = value.StickerPosition.HasValue ? new(value.StickerPosition.Value) : null;
+                    StickerSize = value.StickerSize.HasValue ? new(value.StickerSize.Value) : null;
+                    Rotation = value.StickerRotation;
+                    SeqNumber = value.SeqNumber ?? 0;
+                    DetectionTime = value.Timestamp ?? DateTimeOffset.Now;
+            
+                    // Handle image safely
+                    if (value.Image != null && value.Image.Length > 0)
+                    {
+                        try
+                        {
+                            using var ms = new MemoryStream(value.Image);
+                            Image = new Bitmap(ms);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error loading image: {ex.Message}");
+                        }
+                    }
+                }
+            }
         }
 
         private Bitmap _image;
@@ -84,27 +113,8 @@ namespace ConveyorCV_frontend.ViewModels
         {
             if (obj.Content is not ValidationStreamingMessageContent validationMessage)
                 return;
-
-            var result = validationMessage.validation_result;
-
-            using (var ms = new MemoryStream(result.Image))
-            {
-                var bitmap = new Bitmap(ms);
-                if (bitmap != null)
-                {
-                    Image = bitmap;
-                }
-            }
-
-            StickerPresent = result.Sticker_Present;
-            StickerMatchesDesign = result.Sticker_Matches_Design;
-            StickerLocation = result.Sticker_Position.HasValue ? new(result.Sticker_Position.Value) : null;
-            StickerSize = new(result.Sticker_Size);
-            Rotation = result.Sticker_Rotation;
-            SeqNumber = result.SeqNumber;
-            DetectionTime = result.Timestamp;
-
-            LastResult = result;
+            
+            LastResult = validationMessage.ValidationResult;
         }
 
         public StickerValidationResultViewModel()

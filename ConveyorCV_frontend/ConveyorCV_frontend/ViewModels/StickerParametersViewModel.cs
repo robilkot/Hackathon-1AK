@@ -5,12 +5,21 @@ using ReactiveUI;
 using System;
 using System.IO;
 using System.Reactive;
+using System.Reactive.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace ConveyorCV_frontend.ViewModels;
 
 public class StickerParametersViewModel : ViewModelBase
 {
+    private readonly StickerParametersService _stickerParametersService;
+    private string? _status;
+    public string? Status
+    {
+        get => _status;
+        set => this.RaiseAndSetIfChanged(ref _status, value);
+    }
     private string? _imagePath = null;
     public string? ImagePath
     {
@@ -35,6 +44,7 @@ public class StickerParametersViewModel : ViewModelBase
             this.RaisePropertyChanged();
         }
     }
+    
 
     private SizeViewModel _stickerSize = new(400f, 200f);
     public SizeViewModel StickerSize
@@ -63,8 +73,12 @@ public class StickerParametersViewModel : ViewModelBase
 
     public StickerParametersViewModel()
     {
+        _stickerParametersService = new StickerParametersService();
+        _stickerParametersService.StatusChanged += message => Status = message;
+        _stickerParametersService.ErrorOccurred += message => Status = message;
         SelectImageCommand = ReactiveCommand.CreateFromTask(SelectImage);
-        ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParameters);
+        var canApply = this.WhenAnyValue(x => x.Image).Select(image => image != null);
+        ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParameters, canApply);
         FetchParametersCommand = ReactiveCommand.CreateFromTask(FetchParameters);
 
         StickerSize.PropertyChanged += (_, e) =>
@@ -79,19 +93,58 @@ public class StickerParametersViewModel : ViewModelBase
             }
         };
     }
+    
+    public async Task InitializeAsync()
+    {
+        await FetchParameters();
+    }
 
     // fetches current parameters from backend. should be called on startup and on button click (button does not exist yet)
     private async Task FetchParameters()
     {
-        // todo
+        try
+        {
+            var parameters = await _stickerParametersService.GetParametersAsync();
+            if (parameters == null)
+                return;
+
+            AccSize = new SizeViewModel(parameters.AccSize.Width, parameters.AccSize.Height);
+            StickerSize = new SizeViewModel(parameters.StickerSize.Width, parameters.StickerSize.Height);
+            Center = new PointViewModel(parameters.StickerCenter.X, parameters.StickerCenter.Y);
+            Rotation = parameters.StickerRotation;
+
+            if (parameters.Image != null)
+            {
+                using (var stream = new MemoryStream(parameters.Image))
+                {
+                    Image = new Bitmap(stream);
+                    ImagePath = "Загружено с сервера";
+                }
+    
+                UpdateHeight();
+            }
+
+            Status = "Параметры наклейки загружены с сервера";
+        }
+        catch (Exception ex)
+        {
+            Status = $"Ошибка загрузки параметров: {ex.Message}";
+        }
     }
 
     // todo ensure that Image is not null (subscribe CanExecute of this command to validator or smth)
     private async Task ApplyParameters()
     {
+        if (Image == null)
+        {
+            Status = "Ошибка: Изображение не выбрано";
+            return;
+        }
+
         using var stream = new MemoryStream();
         Image.Save(stream);
         byte[] imageBytes = stream.ToArray();
+        string base64Image = Convert.ToBase64String(imageBytes);
 
         var parameters = new StickerValidationParametersDTO(
             imageBytes,
@@ -99,9 +152,9 @@ public class StickerParametersViewModel : ViewModelBase
             new((float)AccSize.Width, (float)AccSize.Height),
             new((float)StickerSize.Width, (float)StickerSize.Height),
             Rotation
-            );
+        );
 
-        // todo send this to backend. ensure ok status code
+        await _stickerParametersService.SetParametersAsync(parameters);
     }
 
     private async Task SelectImage()
@@ -111,7 +164,8 @@ public class StickerParametersViewModel : ViewModelBase
         if (!string.IsNullOrWhiteSpace(result))
         {
             var filename = Path.GetFileName(result);
-            ImagePath = filename;
+            ImagePath = result;
+            Status = $"Выбран файл: {filename}";
             LoadImage(result);
         }
     }

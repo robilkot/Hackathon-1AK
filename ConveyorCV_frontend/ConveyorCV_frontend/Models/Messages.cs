@@ -22,7 +22,7 @@ namespace ConveyorCV_frontend.Models
 
     public class ValidationStreamingMessageContent : StreamingMessageContent
     {
-        public required StickerValidationResultDTO validation_result { get; set; }
+        public required StickerValidationResultDTO ValidationResult { get; set; }
     };
 
     public class StreamingMessageDto
