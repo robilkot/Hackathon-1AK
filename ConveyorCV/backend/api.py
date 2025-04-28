@@ -1,7 +1,12 @@
 import asyncio
 import base64
 import datetime
+import logging
+import multiprocessing
+import queue
+from contextlib import asynccontextmanager
 from multiprocessing import Queue, Process
+from queue import Empty
 
 import cv2
 import numpy as np
@@ -19,14 +24,23 @@ from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValida
 from settings import Settings, get_settings, update_settings
 from websocket_manager import WebSocketManager
 
-app = FastAPI(title="Conveyor CV API")
+
+# todo start/stop processes in production (with IP camera) here
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup
+    # ...
+
+    yield
+
+    # shutdown
+    # ...
+
+app = FastAPI(title="Conveyor CV API", lifespan=lifespan)
+
 settings = get_settings()
 
 manager = WebSocketManager()
-shape_queue = Queue()
-processed_shape_queue = Queue()
-results_queue = Queue()
-websocket_queue = Queue()
 
 camera: CameraInterface
 if settings.camera_type == "video":
@@ -48,24 +62,60 @@ sticker_validator_params = ValidationParams(
     sticker_rotation=0.0        # Default rotation angle
 )
 
+
 detector = ShapeDetector()
 processor = ShapeProcessor()
 validator = StickerValidator(sticker_validator_params)
-shape_detector_process: Process = ShapeDetectorProcess(shape_queue, websocket_queue, camera, detector, 20)
-shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
-sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
 
+
+exit_queue: Queue
+shape_queue: Queue
+processed_shape_queue: Queue
+results_queue: Queue
+websocket_queue: Queue
+shape_detector_process: Process
+shape_processor_process: Process
+sticker_validator_process: Process
+processes: list
+queues: list
+
+def init_processes():
+    global shape_detector_process, shape_processor_process, sticker_validator_process, processes
+    global exit_queue, shape_queue, processed_shape_queue, websocket_queue, results_queue, queues
+
+    exit_queue = Queue()
+    shape_queue = Queue()
+    processed_shape_queue = Queue()
+    results_queue = Queue()
+    websocket_queue = Queue()
+
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 20)
+    shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
+    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
+
+    processes = [shape_detector_process, shape_processor_process, sticker_validator_process]
+    queues = [exit_queue, shape_queue, processed_shape_queue, results_queue, websocket_queue]
+
+init_processes()
 
 async def stream_images_async():
+    print(f"stream_images_async starting")
     last_time = datetime.datetime.now()
     while True:
         try:
-            msg: StreamingMessage = websocket_queue.get()
+            msg: StreamingMessage = websocket_queue.get_nowait()
+
+            if msg is None:
+                raise InterruptedError
 
             await manager.broadcast_message(msg)
+        except queue.Empty:
+            pass
+        except (KeyboardInterrupt, InterruptedError):
+            print(f"stream_images_async exiting")
+            return
         except Exception as e:
-            print(f"exception: ", e)
-            raise e
+            print(f"stream_images_async exception: ", str(e), type(e))
 
         current_time = datetime.datetime.now()
         if current_time - last_time > datetime.timedelta(seconds=2):
@@ -77,17 +127,22 @@ async def stream_images_async():
         await asyncio.sleep(0.033)  # ~30fps
 
 
-def start_processes():
-    shape_detector_process.start()
-    shape_processor_process.start()
-    sticker_validator_process.start()
-    print("Processes started")
+def start_processes(background_tasks: BackgroundTasks):
+    init_processes()
+
+    for process in processes:
+        if not process.is_alive():
+            process.start()
+
+    background_tasks.add_task(stream_images_async)
+
 
 def stop_processes():
-    # todo shitty impl
-    shape_detector_process.terminate()
-    shape_processor_process.terminate()
-    sticker_validator_process.terminate()
+    for queue in queues:
+        while not queue.empty():
+            queue.get()
+
+        queue.put(None)
 
 
 @app.websocket("/ws")
@@ -98,7 +153,8 @@ async def websocket_connect(websocket: WebSocket):
             await websocket.receive_text()  # Keep connection alive
     except WebSocketDisconnect as e:
         manager.disconnect(websocket)
-        raise e
+        if e.code != 1000:
+            logging.warn(f'websocket closed: code {e.code}')
 
 
 @app.get("/settings", response_model=Settings)
@@ -116,8 +172,7 @@ async def update_current_settings(settings: Settings):
 
 @app.post("/stream/start")
 async def start_stream_endpoint(background_tasks: BackgroundTasks):
-    start_processes()
-    background_tasks.add_task(stream_images_async)
+    start_processes(background_tasks)
     return {"status": "streaming started"}
 
 

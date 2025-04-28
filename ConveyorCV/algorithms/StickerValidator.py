@@ -5,7 +5,6 @@ import cv2
 from algorithms.InvariantTM import invariant_match_template
 from model.model import ValidationParams, DetectionContext, ValidationResults
 
-
 class StickerValidator:
     def __init__(self, params: ValidationParams):
         self.__params = params

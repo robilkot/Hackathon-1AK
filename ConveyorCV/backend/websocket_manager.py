@@ -1,6 +1,7 @@
 import json
 
 from fastapi import WebSocket
+from starlette.websockets import WebSocketState, WebSocketDisconnect
 
 from model.model import StreamingMessage, DefaultJsonEncoder
 
@@ -20,10 +21,12 @@ class WebSocketManager:
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
 
-    async def __send_message(self, ws, msg):
+    async def __send_message(self, ws: WebSocket, msg):
         try:
             msg_json = json.dumps(msg, cls=DefaultJsonEncoder)
             await ws.send_bytes(msg_json)
+        except WebSocketDisconnect:
+            pass
         except Exception as e:
             print('FUCK json, ', str(e))
             await ws.close()
