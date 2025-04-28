@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 
 from model.model import DetectionContext
+from utils.env import *
 
 
 class ShapeProcessor:
@@ -79,16 +80,17 @@ class ShapeProcessor:
         shape = context.shape
         (y, x, Null) = context.image.shape
         contours, hierarchy = cv2.findContours(shape, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        p1 = (x * COEFF_DETECTION_BORDER_LEFT , y * COEFF_DETECTION_LINE_HEIGHT)
+        p2 = (x * COEFF_DETECTION_BORDER_RIGHT, y * COEFF_DETECTION_LINE_HEIGHT)
 
         for c in contours:
             epsilon = 0.05 * cv2.arcLength(c, True)
             corners = cv2.approxPolyDP(c, epsilon, True)
-
             bool_fits = True
             if bool_fits:
-                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (0.4*x, 0.5*y), False) > 0)
+                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, p1, False) > 0)
             if bool_fits:
-                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, (0.6*x, 0.5*y), False) > 0)
+                bool_fits = bool_fits & (cv2.pointPolygonTest(corners, p2, False) > 0)
             if bool_fits:
                 processed_image = self.__cut_out_contour_evened_out(image_source, corners)
                 context.processed_image = processed_image
