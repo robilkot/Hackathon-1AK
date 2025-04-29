@@ -20,13 +20,21 @@
             FalseValue="Макет неверный"/>
         <converters:BoolToValueConverter
             x:Key="BoolToColorConverter"
-            TrueValue="Green"
+            TrueValue="#00cc00"
             FalseValue="Red"/>
 		<converters:StickerParametersToYConverter
 			x:Key="StickerParametersToYConverter"/>
 		<converters:StickerParametersToXConverter
 			x:Key="StickerParametersToXConverter"/>
     </UserControl.Resources>
+	<UserControl.Styles>
+		<Style Selector="Run.secondary">
+			<Setter Property="FontSize" Value="16"/>
+		</Style>
+		<Style Selector="TextBlock.secondary">
+			<Setter Property="FontSize" Value="16"/>
+		</Style>
+	</UserControl.Styles>
     <Design.DataContext>
         <vm:StickerValidationResultViewModel/>
     </Design.DataContext>
@@ -69,7 +77,7 @@
 						<Border
 							Width="{Binding StickerSize.Width}"
 							Height="{Binding StickerSize.Height}"
-							BorderThickness="2"
+							BorderThickness="3"
 							BorderBrush="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
 							HorizontalAlignment="Left"
 							VerticalAlignment="Top">
@@ -99,7 +107,7 @@
 							<Ellipse
 								Width="10"
 								Height="10"
-								Fill="Red"
+								Fill="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
 								Canvas.Left="{Binding StickerLocation.X}"
 								Canvas.Top="{Binding StickerLocation.Y}"
 								Margin="-5,-5,0,0"/>
@@ -151,18 +159,21 @@
 
 					<!--<TextBlock Text="{Binding StickerSize.Width, StringFormat='Ширина наклейки: {0:F1}'}" />-->
 					<TextBlock
+						Classes="secondary"
 						IsVisible="{Binding StickerPresent}">
 						<Run Text="Поворот наклейки: "/>
 						<Run Text="{Binding Rotation, StringFormat={}{0:0.0}°}"/>
 					</TextBlock>
 					<Separator/>
-					<TextBlock>
+					<TextBlock
+						Classes="secondary">
 						<Run Text="Порядковый номер аккумулятора: "/>
 						<Run Text="{Binding SeqNumber}"/>
 					</TextBlock>
-					<TextBlock>
+					<TextBlock
+						Classes="secondary">
 						<Run Text="Время обнаружения: "/>
-						<Run Text="{Binding DetectionTime, StringFormat={}{0:hh.mm.ss}}"/>
+						<Run Text="{Binding Timestamp, StringFormat={}{0:HH.mm.ss}}"/>
 					</TextBlock>
 				</StackPanel>
 			</Expander>

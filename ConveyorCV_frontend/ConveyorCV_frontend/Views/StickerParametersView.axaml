@@ -16,6 +16,13 @@
             x:Key="StickerParametersToXConverter"/>
 	</UserControl.Resources>
 
+	<UserControl.Styles>
+		<Style Selector="NumericUpDown">
+			<Setter Property="ShowButtonSpinner" Value="False"/>
+			<Setter Property="FormatString" Value="0.0"/>
+		</Style>
+	</UserControl.Styles>
+
 	<Design.DataContext>
 		<vm:StickerParametersViewModel/>
 	</Design.DataContext>
@@ -74,14 +81,11 @@
 				<Grid
 					ColumnDefinitions="*, auto">
 					<TextBlock
-						Grid.Row="1"
 						Grid.Column="0"
 						VerticalAlignment="Center"
 						Text="Высота аккумулятора: "/>
 					<NumericUpDown
-						Grid.Row="1"
 						Grid.Column="1"
-						FormatString="0.0"
 						VerticalContentAlignment="Center"
 						Value="{Binding AccSize.Height}"/>
 				</Grid>
@@ -91,14 +95,11 @@
 				<Grid
 					ColumnDefinitions="*, auto">
 					<TextBlock
-						Grid.Row="3"
 						Grid.Column="0"
 						VerticalAlignment="Center"
 						Text="Длина наклейки: "/>
 					<NumericUpDown
-						Grid.Row="3"
 						Grid.Column="1"
-						FormatString="0.0"
 						VerticalContentAlignment="Center"
 						Value="{Binding StickerSize.Width}"/>
 				</Grid>
@@ -106,14 +107,11 @@
 				<Grid
 					ColumnDefinitions="*, auto">
 					<TextBlock
-						Grid.Row="4"
 						Grid.Column="0"
 						VerticalAlignment="Center"
 						Text="Высота наклейки: "/>
 					<NumericUpDown
-						Grid.Row="4"
 						Grid.Column="1"
-						FormatString="0.0"
 						VerticalContentAlignment="Center"
 						Value="{Binding StickerSize.Height}"/>
 				</Grid>
@@ -122,14 +120,11 @@
 				<Grid
 					ColumnDefinitions="*, auto">
 					<TextBlock
-						Grid.Row="5"
 						Grid.Column="0"
 						VerticalAlignment="Center"
 						Text="Поворот наклейки: "/>
 					<NumericUpDown
-						Grid.Row="5"
 						Grid.Column="1"
-						FormatString="0.0"
 						Increment="0.1"
 						VerticalContentAlignment="Center"
 						Value="{Binding Rotation}"/>
@@ -139,14 +134,11 @@
 				<Grid
 					ColumnDefinitions="*, auto">
 					<TextBlock
-						Grid.Row="6"
 						Grid.Column="0"
 						VerticalAlignment="Center"
 						Text="Центр наклейки (X): "/>
 					<NumericUpDown
-						Grid.Row="6"
 						Grid.Column="1"
-						FormatString="0.0"
 						VerticalContentAlignment="Center"
 						Value="{Binding Center.X}"/>
 				</Grid>
@@ -154,20 +146,16 @@
 				<Grid
 					ColumnDefinitions="*, auto">
 					<TextBlock
-						Grid.Row="7"
 						Grid.Column="0"
 						VerticalAlignment="Center"
 						Text="Центр наклейки (Y): "/>
 					<NumericUpDown
-						Grid.Row="7"
 						Grid.Column="1"
-						FormatString="0.0"
 						VerticalContentAlignment="Center"
 						Value="{Binding Center.Y}"/>
 				</Grid>
 				
 				<Button
-					Grid.Row="9"
 					Grid.ColumnSpan="2"
 					HorizontalAlignment="Stretch"
 					HorizontalContentAlignment="Center"
@@ -175,7 +163,6 @@
 					Content="Применить"/>
 				
 				<TextBlock
-					Grid.Row="10"
 					Grid.ColumnSpan="2"
 					Margin="0,5,0,0"
 					TextWrapping="Wrap"

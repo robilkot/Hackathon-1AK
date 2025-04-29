@@ -39,7 +39,7 @@ class StickerValidator:
         template_rgb = cv2.cvtColor(template_bgr, cv2.COLOR_BGR2RGB)
 
         points_list = invariant_match_template(rgbimage=img_rgb, rgbtemplate=template_rgb, method="TM_CCOEFF_NORMED",
-                                               matched_thresh=0.5, rot_range=[-15, 15], rot_interval=5,
+                                               matched_thresh=0.5, rot_range=[-15, 15], rot_interval=2,
                                                scale_range=[15, 50], scale_interval=5, rm_redundant=True, minmax=True)
 
         if len(points_list) > 1:
@@ -53,19 +53,27 @@ class StickerValidator:
             sticker_matches_design=sticker_present,
             sticker_image = context.processed_image,
             seq_number=context.seq_number,
+            detected_at=context.detected_at
         )
 
+
         if sticker_present and points_list[0]:
-            position_tuple = points_list[0][0]
             rotation = points_list[0][1]
             scale = points_list[0][2]
             confidence = points_list[0][3]
-            sticker_width = 0.0
-            sticker_height = 0.0
+
+            # todo get from parameters?
+            sticker_size = template_rgb.shape[1] * scale / 100, template_rgb.shape[0] * scale / 100
+            x, y = points_list[0][0]
+            x, y = x + sticker_size[0] / 2, y + sticker_size[1] / 2
+            position_tuple = (x, y)
+
+            sticker_width = sticker_size[0]
+            sticker_height = sticker_size[1]
             size_tuple = (float(sticker_width), float(sticker_height))
 
             context.validation_results.sticker_position=position_tuple
-            context.validation_results.sticker_rotation=float(rotation)
+            context.validation_results.sticker_rotation=float(-rotation)
             context.validation_results.sticker_size=size_tuple
 
         self.__last_processed_acc_detections.append(context)
@@ -106,8 +114,6 @@ class StickerValidator:
         matches = [r.sticker_matches_design for r in results if r.sticker_matches_design is not None]
         sticker_matches_design = max(set(matches), key=matches.count) if matches else None
 
-        self.__last_processed_acc_detections = []
-
         result = StickerValidationResult(
             sticker_present=sticker_present,
             sticker_matches_design=sticker_matches_design,
@@ -119,4 +125,5 @@ class StickerValidator:
             detected_at=results[0].detected_at
         )
 
+        self.__last_processed_acc_detections = []
         self.__combined_validation_result = result

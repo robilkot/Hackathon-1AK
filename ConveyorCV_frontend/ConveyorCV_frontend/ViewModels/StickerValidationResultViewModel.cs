@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Media.Imaging;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
@@ -29,10 +30,13 @@ namespace ConveyorCV_frontend.ViewModels
                     StickerSize = value.StickerSize.HasValue ? new(value.StickerSize.Value) : null;
                     Rotation = value.StickerRotation;
                     SeqNumber = value.SeqNumber ?? 0;
-                    DetectionTime = value.Timestamp ?? DateTimeOffset.Now;
-            
-                    using var ms = new MemoryStream(value.Image.ToDecodedBytes());
-                    Image = new Bitmap(ms);
+                    Timestamp = value.Timestamp;
+
+                    if (!Design.IsDesignMode)
+                    {
+                        using var ms = new MemoryStream(value.Image.ToDecodedBytes());
+                        Image = new Bitmap(ms);
+                    }
                 }
             }
         }
@@ -86,11 +90,11 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _seqNumber, value);
         }
 
-        private DateTimeOffset _detectionTime = DateTimeOffset.Now;
-        public DateTimeOffset DetectionTime
+        private DateTimeOffset _timestamp = DateTimeOffset.UtcNow;
+        public DateTimeOffset Timestamp
         {
-            get => _detectionTime;
-            set => this.RaiseAndSetIfChanged(ref _detectionTime, value);
+            get => _timestamp;
+            set => this.RaiseAndSetIfChanged(ref _timestamp, value);
         }
 
         public StickerValidationResultViewModel(WebSocketService webSocketService)
@@ -114,6 +118,7 @@ namespace ConveyorCV_frontend.ViewModels
             }
 
             LastResult = new("", new(), 0, true, false, new(), new(), 5);
+            Timestamp = DateTimeOffset.UtcNow;
         }
     }
 }

@@ -18,7 +18,7 @@ LOGGING_CONFIG = {
     "disable_existing_loggers": False,
     "formatters": {
         "standard": {
-            "format": "%(asctime)s %(name)s [%(levelname)s] %(message)s",
+            "format": "%(levelname)s %(asctime)s %(name)s - %(message)s",
             "datefmt": "%H:%M:%S"  # Only shows hours:minutes:seconds
         }
     },

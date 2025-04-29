@@ -161,6 +161,8 @@ namespace ConveyorCV_frontend.Services
                                 
                                 Debug.WriteLine($"[WebSocketService] Validation deserialization result:");
                                 Debug.WriteLine(
+                                    $"  - Timestamp: {validationContent?.ValidationResult?.Timestamp}");
+                                Debug.WriteLine(
                                     $"  - StickerPresent: {validationContent?.ValidationResult?.StickerPresent}");
                                 Debug.WriteLine(
                                     $"  - StickerMatchesDesign: {validationContent?.ValidationResult?.StickerMatchesDesign}");

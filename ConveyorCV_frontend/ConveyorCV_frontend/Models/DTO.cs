@@ -13,7 +13,7 @@ namespace ConveyorCV_frontend.Models
 
     public record StickerValidationResultDTO(
         string Image, // b64 encoded
-        DateTimeOffset? Timestamp,
+        DateTimeOffset Timestamp,
         int? SeqNumber,
         bool? StickerPresent,
         bool? StickerMatchesDesign,
