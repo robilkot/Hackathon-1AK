@@ -3,6 +3,7 @@ import base64
 import json
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
+from dataclasses import dataclass, field
 
 from datetime import datetime
 from json import JSONEncoder
@@ -89,7 +90,7 @@ class StickerValidationResult:
     sticker_size: Optional[Tuple[float, float]] = None
     sticker_rotation: Optional[float] = None
     seq_number: int = 0
-    detected_at: datetime = datetime.now()
+    detected_at: datetime = field(default_factory=datetime.now)
 
     def to_dict(self):
         """Convert to a format matching C# StickerValidationResultDTO"""
@@ -178,7 +179,6 @@ class StreamingMessage:
         self.type = type
         self.content = json.dumps(content.to_dict(), cls=DefaultJsonEncoder)
 
-
 Base = declarative_base()
 
 class ValidationLog(Base):
@@ -214,9 +214,28 @@ class ValidationLog(Base):
             "sticker_rotation": self.sticker_rotation
         }
 
+    @classmethod
+    def paginate(cls, db, start_date=None, end_date=None, page=1, page_size=100):
+        """Class method to paginate validation logs with filtering"""
+        query = db.query(cls)
 
-def get_db_session(db_url):
-    engine = create_engine(db_url)
-    Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    return SessionLocal()
+        if start_date:
+            query = query.filter(cls.timestamp >= start_date)
+
+        if end_date:
+            query = query.filter(cls.timestamp <= end_date)
+
+        total_count = query.count()
+        query = query.order_by(cls.timestamp.desc())
+        query = query.offset((page - 1) * page_size).limit(page_size)
+
+        results = query.all()
+        logs = [log.to_dict() for log in results]
+
+        return {
+            "total": total_count,
+            "page": page,
+            "page_size": page_size,
+            "pages": (total_count + page_size - 1) // page_size,
+            "logs": logs
+        }

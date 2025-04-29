@@ -18,7 +18,8 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
-from model.model import StickerValidationParams, StreamingMessage, get_db_session, ValidationLog
+from backend.db import paginate_validation_logs
+from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings
 from websocket_manager import WebSocketManager
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     # shutdown
     # ...
 
+
 app = FastAPI(title="Conveyor CV API", lifespan=lifespan)
 
 logger = logging.getLogger(__name__)
@@ -49,25 +51,23 @@ if settings.camera_type == "video":
 else:
     camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
 
-#todo delete if this is bullshit
+# todo delete if this is bullshit
 sticker_design = cv2.imread(settings.sticker_design_path)
 if sticker_design is None:
     raise Exception("sticker_design not found")
 
-#todo make it correct
+# todo make it correct
 sticker_validator_params = StickerValidationParams(
     sticker_design=sticker_design,
     sticker_center=(50.0, 50.0),  # Default center point
-    acc_size=(200.0, 200.0),    # Default acceptable size
+    acc_size=(200.0, 200.0),  # Default acceptable size
     sticker_size=(100.0, 100.0),  # Default sticker size
-    sticker_rotation=0.0        # Default rotation angle
+    sticker_rotation=0.0  # Default rotation angle
 )
-
 
 detector = ShapeDetector()
 processor = ShapeProcessor()
 validator = StickerValidator(sticker_validator_params)
-
 
 exit_queue: Queue
 shape_queue: Queue
@@ -81,12 +81,6 @@ validation_logger_process: ValidationResultsLogger
 processes: list
 queues: list
 
-def get_db():
-    db = get_db_session(settings.database_url)
-    try:
-        yield db
-    finally:
-        db.close()
 
 def init_processes():
     global shape_detector_process, shape_processor_process, sticker_validator_process, processes
@@ -100,13 +94,16 @@ def init_processes():
 
     shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 20)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
-    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
-    validation_logger_process = ValidationResultsLogger(results_queue, settings.database_url)
+    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
+                                                        validator)
+    validation_logger_process = ValidationResultsLogger(results_queue)
 
     processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
     queues = [exit_queue, shape_queue, processed_shape_queue, results_queue, websocket_queue]
 
+
 init_processes()
+
 
 async def stream_images_async():
     logger.info(f"stream_images starting")
@@ -134,6 +131,8 @@ async def stream_images_async():
             # print('processed_shape_queue: ', processed_shape_queue.qsize())
             # print('results_queue: ', results_queue.qsize())
             # print('websocket_queue: ', websocket_queue.qsize())
+
+        await asyncio.sleep(0.016)
 
 
 def start_processes(background_tasks: BackgroundTasks):
@@ -183,6 +182,7 @@ async def get_sticker_parameters():
     params = validator.get_parameters()
     return params.to_dict()
 
+
 @app.post("/sticker/parameters")
 async def set_sticker_parameters(params_dict: dict):
     global sticker_validator_process
@@ -196,42 +196,15 @@ async def set_sticker_parameters(params_dict: dict):
     return {"status": "success", "message": "Sticker parameters updated"}
 
 
-def paginate_validation_logs(db, start_date=None, end_date=None, page=1, page_size=100):
-    """Helper function to paginate validation logs with filtering"""
-    query = db.query(ValidationLog)
-
-    if start_date:
-        query = query.filter(ValidationLog.timestamp >= start_date)
-
-    if end_date:
-        query = query.filter(ValidationLog.timestamp <= end_date)
-
-    total_count = query.count()
-    query = query.order_by(ValidationLog.timestamp.desc())
-    query = query.offset((page - 1) * page_size).limit(page_size)
-
-    results = query.all()
-    logs = [log.to_dict() for log in results]
-
-    return {
-        "total": total_count,
-        "page": page,
-        "page_size": page_size,
-        "pages": (total_count + page_size - 1) // page_size,
-        "logs": logs
-    }
-
-
 @app.get("/validation/logs")
 def get_validation_logs(
         start_date: Optional[datetime.datetime] = None,
         end_date: Optional[datetime.datetime] = None,
         page: int = Query(1, ge=1),
         page_size: int = Query(100, ge=1, le=1000),
-        db: Session = Depends(get_db)
 ):
     """Get validation logs with date filtering and pagination"""
-    return paginate_validation_logs(db, start_date, end_date, page, page_size)
+    return paginate_validation_logs(start_date, end_date, page, page_size)
 
 
 @app.get("/example", response_class=HTMLResponse)
