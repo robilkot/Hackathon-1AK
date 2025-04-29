@@ -52,12 +52,12 @@
         </Style>
 
         <Style Selector="Border.card">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#DDDDDD"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="3"/>
-            <Setter Property="Padding" Value="8"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DDDDDD" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
 
         <Style Selector="Border.card:nth-child(2n)">
@@ -65,14 +65,41 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid Margin="0,25,0,0"
+          RowDefinitions="Auto,*,Auto">
         <!-- Filter Panel -->
         <Border Grid.Row="0" Padding="10" Margin="5" Background="{DynamicResource SystemRegionBrush}" CornerRadius="3">
             <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
                 <TextBlock Grid.Column="0" Text="С:" Margin="0,0,5,0" />
-                <CalendarDatePicker Grid.Column="1" SelectedDate="{Binding StartDate}" />
+
+                <!-- Replace CalendarDatePicker with TextBox -->
+                <Panel Grid.Column="1">
+                    <TextBox Text="{Binding StartDateTimeText}"
+                             Watermark="ДД.ММ.ГГГГ ЧЧ:ММ"
+                             UseFloatingWatermark="True" />
+                    <TextBlock Text="{Binding StartDateTimeError}"
+                               Foreground="Red"
+                               FontSize="10"
+                               VerticalAlignment="Bottom"
+                               Margin="5,0,0,-15"
+                               IsVisible="{Binding StartDateTimeError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </Panel>
+
                 <TextBlock Grid.Column="2" Text="По:" Margin="10,0,5,0" />
-                <CalendarDatePicker Grid.Column="3" SelectedDate="{Binding EndDate}" />
+
+                <!-- Replace CalendarDatePicker with TextBox -->
+                <Panel Grid.Column="3">
+                    <TextBox Text="{Binding EndDateTimeText}"
+                             Watermark="ДД.ММ.ГГГГ ЧЧ:ММ"
+                             UseFloatingWatermark="True" />
+                    <TextBlock Text="{Binding EndDateTimeError}"
+                               Foreground="Red"
+                               FontSize="10"
+                               VerticalAlignment="Bottom"
+                               Margin="5,0,0,-15"
+                               IsVisible="{Binding EndDateTimeError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </Panel>
+
                 <Button Grid.Column="4" Margin="10,0,0,0" Command="{Binding LoadLogsCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <PathIcon
@@ -154,7 +181,7 @@
                                   Height="14" />
                     </Button>
 
-                    <Border Background="White" Padding="10,5" CornerRadius="3" Width="70">
+                    <Border Background="White" Padding="10,5" CornerRadius="3" Width="90">
                         <TextBlock HorizontalAlignment="Center">
                             <TextBlock.Text>
                                 <MultiBinding StringFormat="{}{0} из {1}">

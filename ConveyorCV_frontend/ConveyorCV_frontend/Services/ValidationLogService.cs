@@ -30,7 +30,7 @@ namespace ConveyorCV_frontend.Services
             DateTimeOffset? startDate = null,
             DateTimeOffset? endDate = null,
             int page = 1,
-            int pageSize = 100)
+            int pageSize = 10)
         {
             try
             {
