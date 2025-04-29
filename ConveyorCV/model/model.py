@@ -11,24 +11,21 @@ import cv2
 import numpy as np
 
 
-
-
-# todo: информация о позиционировании наклейки
 @dataclass
-class ValidationParams:
+class StickerValidationParams:
     sticker_design: np.ndarray
     sticker_center: Tuple[float, float]
     acc_size: Tuple[float, float]
     sticker_size: Tuple[float, float]
     sticker_rotation: float
 
+    def __str__(self):
+        return f'center: {self.sticker_center}, size: {self.sticker_size}, rotation: {self.sticker_rotation}, acc_size: {self.acc_size}'
+
     def to_dict(self):
         """Convert ValidationParams to a serializable dictionary matching C# DTO structure"""
-        if self.sticker_design is not None:
-            _, encoded_img = cv2.imencode('.png', self.sticker_design)
-            image_bytes = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
-        else:
-            image_bytes = None
+        _, encoded_img = cv2.imencode('.png', self.sticker_design)
+        image_bytes = base64.b64encode(encoded_img.tobytes())
 
         return {
             "Image": image_bytes,
@@ -46,6 +43,37 @@ class ValidationParams:
             },
             "StickerRotation": float(self.sticker_rotation)
         }
+
+    @classmethod
+    def from_dict(cls, params_dict: dict):
+        # Decode base64 image
+        image_bytes = base64.b64decode(params_dict["StickerDesign"])
+        image_array = np.frombuffer(image_bytes, dtype=np.uint8)
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+        # Extract coordinates and sizes
+        sticker_center = (
+            float(params_dict["StickerCenter"]["X"]),
+            float(params_dict["StickerCenter"]["Y"])
+        )
+
+        acc_size = (
+            float(params_dict["AccSize"]["Width"]),
+            float(params_dict["AccSize"]["Height"])
+        )
+
+        sticker_size = (
+            float(params_dict["StickerSize"]["Width"]),
+            float(params_dict["StickerSize"]["Height"])
+        )
+
+        return cls(
+            sticker_design=image,
+            sticker_center=sticker_center,
+            acc_size=acc_size,
+            sticker_size=sticker_size,
+            sticker_rotation=float(params_dict["StickerRotation"])
+        )
 
 
 @dataclass

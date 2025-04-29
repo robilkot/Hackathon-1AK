@@ -7,6 +7,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reactive;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 public class MainViewModel : ViewModelBase
@@ -44,13 +45,6 @@ public class MainViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _status, value);
     }
 
-    private bool _isStreaming = false;
-    public bool IsStreaming
-    {
-        get => _isStreaming;
-        private set => this.RaiseAndSetIfChanged(ref _isStreaming, value);
-    }
-
     public MainViewModel()
     {
         _webSocketService = new WebSocketService();
@@ -62,8 +56,10 @@ public class MainViewModel : ViewModelBase
         _ = StickerParameters.InitializeAsync();
         ValidationResult = new StickerValidationResultViewModel(_webSocketService);
 
-        StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync);
-        StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync);
+        var canStart = this.WhenAnyValue(x => x.Status).Select(status => status is StreamStatus.Disconnected or StreamStatus.LostConnection or StreamStatus.Error);
+        var canStop = canStart.Select(value => !value);
+        StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync, canStart);
+        StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync, canStop);
     }
 
     private void _webSocketService_MessageReceived(StreamingMessage obj)
@@ -82,14 +78,10 @@ public class MainViewModel : ViewModelBase
     {
         try
         {
-            if (IsStreaming)
-                return;
-
             Status = StreamStatus.Connecting;
             await _webSocketService.ConnectAsync();
             Status = StreamStatus.Starting;
             await _webSocketService.StartStreamAsync();
-            IsStreaming = true;
             Status = StreamStatus.Running;
         }
         catch (Exception ex)
@@ -103,15 +95,11 @@ public class MainViewModel : ViewModelBase
     {
         try
         {
-            if (!IsStreaming)
-                return;
-
             Status = StreamStatus.Stopping;
             await _webSocketService.StopStreamAsync();
 
             await _webSocketService.DisconnectAsync();
 
-            IsStreaming = false;
             Status = StreamStatus.Disconnected;
         }
         catch (Exception ex)
@@ -124,7 +112,6 @@ public class MainViewModel : ViewModelBase
     private void OnConnectionClosed()
     {
         Status = StreamStatus.LostConnection;
-        IsStreaming = false;
     }
 
     private void OnErrorOccurred(Exception ex)

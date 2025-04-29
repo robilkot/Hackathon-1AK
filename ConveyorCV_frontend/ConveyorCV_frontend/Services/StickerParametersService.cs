@@ -11,8 +11,8 @@ public class StickerParametersService
     private readonly string _baseUrl;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public event Action<string> ErrorOccurred;
-    public event Action<string> StatusChanged;
+    public event Action<string>? ErrorOccurred;
+    public event Action<string>? StatusChanged;
 
     public StickerParametersService(string baseUrl = "localhost:8000")
     {

@@ -36,7 +36,7 @@ namespace ConveyorCV_frontend.ViewModels
                     {
                         try
                         {
-                            using var ms = new MemoryStream(value.Image);
+                            using var ms = new MemoryStream(value.Image.ToDecodedBytes());
                             Image = new Bitmap(ms);
                         }
                         catch (Exception ex)
@@ -124,7 +124,7 @@ namespace ConveyorCV_frontend.ViewModels
                 throw new NotSupportedException();
             }
 
-            LastResult = new([], new(), 0, true, false, new(), new(), 5);
+            LastResult = new("", new(), 0, true, false, new(), new(), 5);
         }
     }
 }

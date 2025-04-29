@@ -1,15 +1,11 @@
 import asyncio
-import base64
 import datetime
 import logging
-import multiprocessing
 import queue
 from contextlib import asynccontextmanager
 from multiprocessing import Queue, Process
-from queue import Empty
 
 import cv2
-import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
 
@@ -19,9 +15,9 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
-from model.model import ValidationParams, StreamingMessage
+from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess
-from settings import Settings, get_settings, update_settings
+from settings import get_settings
 from websocket_manager import WebSocketManager
 
 
@@ -37,6 +33,8 @@ async def lifespan(app: FastAPI):
     # ...
 
 app = FastAPI(title="Conveyor CV API", lifespan=lifespan)
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -54,7 +52,7 @@ if sticker_design is None:
     raise Exception("sticker_design not found")
 
 #todo make it correct
-sticker_validator_params = ValidationParams(
+sticker_validator_params = StickerValidationParams(
     sticker_design=sticker_design,
     sticker_center=(50.0, 50.0),  # Default center point
     acc_size=(200.0, 200.0),    # Default acceptable size
@@ -99,7 +97,7 @@ def init_processes():
 init_processes()
 
 async def stream_images_async():
-    print(f"stream_images_async starting")
+    logger.info(f"stream_images_async starting")
     last_time = datetime.datetime.now()
     while True:
         try:
@@ -112,10 +110,10 @@ async def stream_images_async():
         except queue.Empty:
             pass
         except (KeyboardInterrupt, InterruptedError):
-            print(f"stream_images_async exiting")
+            logger.info(f"stream_images_async exiting")
             return
         except Exception as e:
-            print(f"stream_images_async exception: ", str(e), type(e))
+            logger.error(f"stream_images_async exception: ", str(e), type(e))
 
         current_time = datetime.datetime.now()
         if current_time - last_time > datetime.timedelta(seconds=2):
@@ -154,21 +152,8 @@ async def websocket_connect(websocket: WebSocket):
     except WebSocketDisconnect as e:
         manager.disconnect(websocket)
         if e.code != 1000:
-            logging.warn(f'websocket closed: code {e.code}')
+            logger.warn(f'websocket closed: code {e.code}')
 
-
-@app.get("/settings", response_model=Settings)
-async def get_current_settings():
-    return get_settings()
-
-
-@app.post("/settings", response_model=Settings)
-async def update_current_settings(settings: Settings):
-    updated = update_settings(settings)
-
-    # todo
-
-    return updated
 
 @app.post("/stream/start")
 async def start_stream_endpoint(background_tasks: BackgroundTasks):
@@ -181,33 +166,21 @@ async def stop_stream():
     stop_processes()
     return {"status": "streaming stopped"}
 
+
 @app.get("/sticker/parameters")
 async def get_sticker_parameters():
     params = validator.get_parameters()
     return params.to_dict()
 
 @app.post("/sticker/parameters")
-async def set_sticker_parameters(sticker_params: dict):
-    global sticker_validator_process
+async def set_sticker_parameters(params_dict: dict):
+    global sticker_validator_process, validator
 
-    # Decode base64 image
-    image_bytes = base64.b64decode(sticker_params["image"])
-    image_array = np.frombuffer(image_bytes, dtype=np.uint8)
-    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+    sticker_params = StickerValidationParams.from_dict(params_dict)
+    logger.info(f'updated validation params: {str(sticker_params)}')
 
-    # Create StickerParameters object - now with acc_size
-    params = ValidationParams(
-        sticker_design=image,
-        sticker_center=(float(sticker_params["centerX"]), float(sticker_params["centerY"])),
-        sticker_size=(float(sticker_params["width"]), float(sticker_params["height"])),
-        acc_size=(float(sticker_params.get("accWidth", 200)), float(sticker_params.get("accHeight", 200))),  # Added missing parameter
-        sticker_rotation=float(sticker_params["rotation"]),
-    )
-
-    # Update the validator and restart
-    sticker_validator_process.terminate()
-    validator = StickerValidator(params)
-    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
+    validator = StickerValidator(sticker_params)
+    sticker_validator_process.validator = validator
 
     return {"status": "success", "message": "Sticker parameters updated"}
 

@@ -1,4 +1,5 @@
 import gc
+import logging
 import multiprocessing
 import time
 from multiprocessing import Process, Queue
@@ -16,6 +17,8 @@ from model.model import DetectionContext, StreamingMessage, ImageStreamingMessag
 from utils.downscale import downscale
 from utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
 
+logger = logging.getLogger(__name__)
+
 
 # frames -> BW masks of prop
 class ShapeDetectorProcess(Process):
@@ -31,7 +34,7 @@ class ShapeDetectorProcess(Process):
         self.__input_queue = input_queue
 
     def run(self):
-        print(f"{self.name} starting")
+        logger.info(f"{self.name} starting")
 
         self.cam.connect()
 
@@ -74,10 +77,10 @@ class ShapeDetectorProcess(Process):
                     time.sleep(frame_period - elapsed_time)
 
             except (KeyboardInterrupt, InterruptedError):
-                print(f"{self.name} exiting")
+                logger.info(f"{self.name} exiting")
                 return
             except Exception as e:
-                print(f"{self.name} exception: ", e)
+                logger.error(f"{self.name} exception: ", e)
 
 
 # BW masks of prop -> aligned and cropped images
@@ -90,7 +93,7 @@ class ShapeProcessorProcess(Process):
         self.__ws_queue = websocket_queue
 
     def run(self):
-        print(f"{self.name} starting")
+        logger.info(f"{self.name} starting")
 
         while True:
             try:
@@ -105,11 +108,12 @@ class ShapeProcessorProcess(Process):
                     self.__image_queue.put_nowait(context)
                     self.__ws_queue.put_nowait(StreamingMessage(StreamingMessageType.PROCESSED, ImageStreamingMessageContent(context.processed_image)))
 
+
             except (KeyboardInterrupt, InterruptedError):
-                print(f"{self.name} exiting")
+                logger.info(f"{self.name} exiting")
                 return
             except Exception as e:
-                print(f"{self.name} exception: ", e)
+                logger.error(f"{self.name} exception: ", e)
 
 
 # aligned and cropped images -> validation results for prop
@@ -122,7 +126,7 @@ class StickerValidatorProcess(Process):
         self.__ws_queue = websocket_queue
 
     def run(self):
-        print(f"{self.name} starting")
+        logger.info(f"{self.name} starting")
 
         while True:
             try:
@@ -138,34 +142,7 @@ class StickerValidatorProcess(Process):
                     self.__ws_queue.put_nowait(StreamingMessage(StreamingMessageType.VALIDATION, ValidationStreamingMessageContent(context.validation_results)))
 
             except (KeyboardInterrupt, InterruptedError):
-                print(f"{self.name} exiting")
+                logger.info(f"{self.name} exiting")
                 return
             except Exception as e:
-                print(f"{self.name} exception: ", e)
-
-
-# Final step of pipeline to show data
-# class DisplayerProcess(BaseProcess):
-#     def __init__(self, results: Queue):
-#         Process.__init__(self)
-#         self.__results = results
-#
-#     def run(self):
-#         context = None
-#         i = 0
-#         while True:
-#             if not self.__results.empty():
-#                 context = self.__results.get()
-#                 i += 1
-#
-#             if context is None:
-#                 if i != 0:
-#                     print('why')
-#                 continue
-#
-#             # print(context.validation_results)
-#             # cv2.imshow(f'result {i}', context.processed_image)
-#
-#             if cv2.waitKey(5) & 0xFF == ord("q"):
-#                 break
-#         return
+                logger.error(f"{self.name} exception: ", e)

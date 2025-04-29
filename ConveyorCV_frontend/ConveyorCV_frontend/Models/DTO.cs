@@ -4,15 +4,15 @@ using System.Drawing;
 namespace ConveyorCV_frontend.Models
 {
     public record StickerValidationParametersDTO(
-        byte[] Image,
+        string StickerDesign, // b64 encoded
         PointF StickerCenter,
-        SizeF AccSize,
         SizeF StickerSize,
-        double StickerRotation
+        double StickerRotation,
+        SizeF AccSize
         );
 
     public record StickerValidationResultDTO(
-        byte[] Image,
+        string Image, // b64 encoded
         DateTimeOffset? Timestamp,
         int? SeqNumber,
         bool? StickerPresent,
@@ -21,4 +21,13 @@ namespace ConveyorCV_frontend.Models
         PointF? StickerPosition,
         double? StickerRotation
         );
+
+    public static class DTOExtensions
+    {
+        public static byte[] ToDecodedBytes(this string b64encodedImage)
+            => Convert.FromBase64String(b64encodedImage);
+
+        public static string ToEncodedString(this byte[] b64decodedImage)
+            => Convert.ToBase64String(b64decodedImage);
+    }
 }

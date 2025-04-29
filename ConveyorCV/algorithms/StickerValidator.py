@@ -3,16 +3,16 @@ from datetime import datetime
 import cv2
 
 from algorithms.InvariantTM import invariant_match_template
-from model.model import ValidationParams, DetectionContext, ValidationResults
+from model.model import StickerValidationParams, DetectionContext, ValidationResults
 
 class StickerValidator:
-    def __init__(self, params: ValidationParams):
+    def __init__(self, params: StickerValidationParams):
         self.__params = params
         assert(self.__params.sticker_design is not None)
 
-    def set_parameters(self, sticker_params: ValidationParams):
+    def set_parameters(self, sticker_params: StickerValidationParams):
         """Set the validation parameters for the sticker validator"""
-        self.__params = ValidationParams(
+        self.__params = StickerValidationParams(
             sticker_design=sticker_params.sticker_design,
             sticker_center=sticker_params.sticker_center,
             sticker_size=sticker_params.sticker_size,
@@ -20,7 +20,7 @@ class StickerValidator:
             acc_size= sticker_params.acc_size
         )
 
-    def get_parameters(self) -> ValidationParams:
+    def get_parameters(self) -> StickerValidationParams:
         """Get the current validation parameters from the sticker validator"""
         return self.__params
 

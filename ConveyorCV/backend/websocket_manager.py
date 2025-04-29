@@ -1,7 +1,7 @@
 import json
 
 from fastapi import WebSocket
-from starlette.websockets import WebSocketState, WebSocketDisconnect
+from starlette.websockets import WebSocketDisconnect
 
 from model.model import StreamingMessage, DefaultJsonEncoder
 

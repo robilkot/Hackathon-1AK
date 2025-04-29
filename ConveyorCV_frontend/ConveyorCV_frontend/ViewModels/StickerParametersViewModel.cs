@@ -4,6 +4,7 @@ using ConveyorCV_frontend.Services;
 using ReactiveUI;
 using System;
 using System.IO;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text;
@@ -113,16 +114,13 @@ public class StickerParametersViewModel : ViewModelBase
             Center = new PointViewModel(parameters.StickerCenter.X, parameters.StickerCenter.Y);
             Rotation = parameters.StickerRotation;
 
-            if (parameters.Image != null)
+            using (var stream = new MemoryStream(parameters.StickerDesign.ToDecodedBytes()))
             {
-                using (var stream = new MemoryStream(parameters.Image))
-                {
-                    Image = new Bitmap(stream);
-                    ImagePath = "Загружено с сервера";
-                }
-    
-                UpdateHeight();
+                Image = new Bitmap(stream);
+                ImagePath = "Загружено с сервера";
             }
+    
+            UpdateHeight();
 
             Status = "Параметры наклейки загружены с сервера";
         }
@@ -132,26 +130,17 @@ public class StickerParametersViewModel : ViewModelBase
         }
     }
 
-    // todo ensure that Image is not null (subscribe CanExecute of this command to validator or smth)
     private async Task ApplyParameters()
     {
-        if (Image == null)
-        {
-            Status = "Ошибка: Изображение не выбрано";
-            return;
-        }
-
         using var stream = new MemoryStream();
-        Image.Save(stream);
-        byte[] imageBytes = stream.ToArray();
-        string base64Image = Convert.ToBase64String(imageBytes);
+        Image!.Save(stream);
 
         var parameters = new StickerValidationParametersDTO(
-            imageBytes,
+            stream.ToArray().ToEncodedString(),
             new((float)Center.X, (float)Center.Y),
-            new((float)AccSize.Width, (float)AccSize.Height),
             new((float)StickerSize.Width, (float)StickerSize.Height),
-            Rotation
+            Rotation,
+            new((float)AccSize.Width, (float)AccSize.Height)
         );
 
         await _stickerParametersService.SetParametersAsync(parameters);

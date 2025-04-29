@@ -6,9 +6,41 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import logging
+import logging.config
 from api import app
 
 from fastapi.openapi.utils import get_openapi
+
+# Configure logging
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(name)s [%(levelname)s] %(message)s",
+            "datefmt": "%H:%M:%S"  # Only shows hours:minutes:seconds
+        }
+    },
+    "handlers": {
+        "default": {
+            "level": "INFO",
+            "formatter": "standard",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "loggers": {
+        "": {
+            "level": os.environ.get("LOG_LEVEL", "INFO"),
+            "handlers": ["default"],
+            "propagate": False,
+        },
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(__name__)
 
 def custom_openapi():
     if app.openapi_schema:
@@ -27,5 +59,5 @@ app.openapi = custom_openapi
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
     port = int(os.getenv("API_PORT", "8000"))
-    print(f"API documentation available at http://localhost:{port}/docs")
-    uvicorn.run("api_main:app", host="0.0.0.0", port=port, reload=True)
+    logger.info(f"API documentation available at http://localhost:{port}/docs")
+    uvicorn.run("api_main:app", host="127.0.0.1", port=port, reload=False)
