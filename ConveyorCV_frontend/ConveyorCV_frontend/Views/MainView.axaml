@@ -20,23 +20,17 @@
 			x:Key="StreamStatusToTextConverter"/>
 	</UserControl.Resources>
     <Panel>
-        <Menu
-			Margin="5"
-            ZIndex="2"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top">
-            <MenuItem
-                Background="DarkGray"
-                Header="Настройки"/>
-            <MenuItem
-                Background="DarkGray"
-                Header="Журнал работы"/>
-			
-		</Menu>
+	    <Menu Margin="5" ZIndex="2" HorizontalAlignment="Left" VerticalAlignment="Top">
+		    <MenuItem Header="Главная" Background="DarkGray" Command="{Binding NavigateCommand}" 
+		              CommandParameter="{x:Static global:MainViewModel+AppPage.Main}"/>
+		    <MenuItem Header="Журнал работы" Background="DarkGray" Command="{Binding NavigateCommand}" 
+		              CommandParameter="{x:Static global:MainViewModel+AppPage.ValidationLogs}"/>
+		    <MenuItem Header="Настройки" Background="DarkGray"></MenuItem>
+	    </Menu>
 
-        <Grid
-            RowDefinitions="*, 2, *"
-		    Background="{DynamicResource ThemeBackgroundBrush}">
+        <Grid IsVisible="{Binding CurrentPage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static global:MainViewModel+AppPage.Main}}"
+              RowDefinitions="*, 2, *"
+              Background="{DynamicResource ThemeBackgroundBrush}">
 
 			<Panel
 				Background="Black">
@@ -102,5 +96,15 @@
                 Grid.Column="2"/>
             </Grid>
         </Grid>
+	    
+	    <ContentControl 
+		    IsVisible="{Binding CurrentPage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static global:MainViewModel+AppPage.ValidationLogs}}"
+		    Content="{Binding LogsViewModel}">
+		    <ContentControl.ContentTemplate>
+			    <DataTemplate>
+				    <views:ValidationLogsView DataContext="{Binding}"/>
+			    </DataTemplate>
+		    </ContentControl.ContentTemplate>
+	    </ContentControl>
     </Panel>
 </UserControl>

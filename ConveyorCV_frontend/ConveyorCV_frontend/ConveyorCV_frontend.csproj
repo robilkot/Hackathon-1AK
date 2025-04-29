@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
     <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="11.2.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.8" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.8" />
@@ -30,6 +31,10 @@
   <ItemGroup>
     <Compile Update="Views\StickerValidationResultView.axaml.cs">
       <DependentUpon>StickerValidationResultView.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\ValidationLogsView.axaml.cs">
+      <DependentUpon>ValidationLogsView.axaml</DependentUpon>
+      <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
 </Project>

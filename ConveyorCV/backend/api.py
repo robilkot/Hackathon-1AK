@@ -484,35 +484,34 @@ def get_example_html():
                 const tbody = document.getElementById('logsTableBody');
                 tbody.innerHTML = '';
 
-                data.logs.forEach(log => {
-                    const row = document.createElement('tr');
-
-                    // Format position and size if available
-                    const position = log.sticker_position 
-                        ? `X: ${log.sticker_position.x.toFixed(1)}, Y: ${log.sticker_position.y.toFixed(1)}` 
-                        : 'N/A';
-
-                    const size = log.sticker_size 
-                        ? `W: ${log.sticker_size.width.toFixed(1)}, H: ${log.sticker_size.height.toFixed(1)}` 
-                        : 'N/A';
-
-                    // Format timestamp
-                    const timestamp = new Date(log.timestamp).toLocaleString();
-
-                    row.innerHTML = `
-                        <td>${log.id}</td>
-                        <td>${timestamp}</td>
-                        <td>${log.seq_number}</td>
-                        <td>${log.sticker_present ? '✓' : '✗'}</td>
-                        <td>${log.sticker_matches_design === null ? 'N/A' : log.sticker_matches_design ? '✓' : '✗'}</td>
-                        <td>${position}</td>
-                        <td>${size}</td>
-                        <td>${log.sticker_rotation !== null ? log.sticker_rotation.toFixed(1) + '°' : 'N/A'}</td>
-                    `;
-
-                    tbody.appendChild(row);
-                });
-
+                data.Logs.forEach(log => {
+                const row = document.createElement('tr');
+            
+                // Format position and size if available
+                const Position = log.StickerPosition 
+                    ? `X: ${log.StickerPosition.x.toFixed(1)}, Y: ${log.StickerPosition.y.toFixed(1)}` 
+                    : 'N/A';
+            
+                const Size = log.StickerSize 
+                    ? `W: ${log.StickerSize.width.toFixed(1)}, H: ${log.StickerSize.height.toFixed(1)}` 
+                    : 'N/A';
+            
+                // Format Timestamp
+                const Timestamp = new Date(log.Timestamp).toLocaleString();  // Fixed variable declaration
+            
+                row.innerHTML = `
+                    <td>${log.Id}</td>
+                    <td>${Timestamp}</td>
+                    <td>${log.SeqNumber}</td>
+                    <td>${log.StickerPresent ? '✓' : '✗'}</td>
+                    <td>${log.StickerMatchesDesign === null ? 'N/A' : log.StickerMatchesDesign ? '✓' : '✗'}</td>
+                    <td>${Position}</td>
+                    <td>${Size}</td>
+                    <td>${log.StickerRotation !== null ? log.StickerRotation.toFixed(1) + '°' : 'N/A'}</td>
+                `;
+            
+                tbody.appendChild(row);
+            });
                 addEvent(`Fetched ${data.logs.length} logs (page ${data.page}/${data.pages})`);
             } catch (e) {
                 console.error('Error fetching logs:', e);

@@ -45,6 +45,29 @@ public class MainViewModel : ViewModelBase
         set => this.RaiseAndSetIfChanged(ref _status, value);
     }
 
+    public enum AppPage
+    {
+        Main,
+        ValidationLogs,
+        Settings
+    }
+
+    private AppPage _currentPage = AppPage.Main;
+    public AppPage CurrentPage
+    {
+        get => _currentPage;
+        set => this.RaiseAndSetIfChanged(ref _currentPage, value);
+    }
+
+    private ValidationLogsViewModel _logsViewModel;
+    public ValidationLogsViewModel LogsViewModel
+    {
+        get => _logsViewModel;
+        private set => this.RaiseAndSetIfChanged(ref _logsViewModel, value);
+    }
+    
+    public ReactiveCommand<AppPage, Unit> NavigateCommand { get; }
+    
     public MainViewModel()
     {
         _webSocketService = new WebSocketService();
@@ -60,6 +83,10 @@ public class MainViewModel : ViewModelBase
         var canStop = canStart.Select(value => !value);
         StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync, canStart);
         StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync, canStop);
+        _currentPage = AppPage.Main;
+        LogsViewModel = new ValidationLogsViewModel();
+        
+        NavigateCommand = ReactiveCommand.Create<AppPage>(page => CurrentPage = page);
     }
 
     private void _webSocketService_MessageReceived(StreamingMessage obj)
