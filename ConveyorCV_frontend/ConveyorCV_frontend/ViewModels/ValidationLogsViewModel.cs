@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Reactive;
 using System.Threading.Tasks;
 using ConveyorCV_frontend.Models;
@@ -172,7 +173,8 @@ namespace ConveyorCV_frontend.ViewModels
         public ReactiveCommand<Unit, Unit> PreviousPageCommand { get; }
         public ReactiveCommand<Unit, Unit> FirstPageCommand { get; }
         public ReactiveCommand<Unit, Unit> LastPageCommand { get; }
-
+        public ReactiveCommand<int, Unit> DeleteLogCommand { get; }
+        
         public ValidationLogsViewModel()
         {
             _logService = new ValidationLogService();
@@ -186,6 +188,7 @@ namespace ConveyorCV_frontend.ViewModels
             PreviousPageCommand = ReactiveCommand.CreateFromTask(PreviousPage);
             FirstPageCommand = ReactiveCommand.CreateFromTask(FirstPage);
             LastPageCommand = ReactiveCommand.CreateFromTask(LastPage);
+            DeleteLogCommand = ReactiveCommand.CreateFromTask<int>(DeleteLog);
         
 
             EndDateTime = DateTimeOffset.Now;
@@ -237,6 +240,23 @@ namespace ConveyorCV_frontend.ViewModels
         {
             CurrentPage = TotalPages;
             await LoadLogs();
+        }
+        
+        private async Task DeleteLog(int logId)
+        {
+            var success = await _logService.DeleteLogAsync(logId);
+            if (success)
+            {
+                var logToRemove = Logs.FirstOrDefault(log => log.Id == logId);
+                if (logToRemove != null)
+                    Logs.Remove(logToRemove);
+                
+                TotalRecords--;
+                TotalPages = (int)Math.Ceiling(TotalRecords / (double)PageSize);
+        
+                if (CurrentPage > TotalPages && TotalPages > 0)
+                    await LoadLogs(); 
+            }
         }
     }
 }

@@ -59,6 +59,15 @@
             <Setter Property="Padding" Value="8" />
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
+        
+        <Style Selector="Button.delete-button">
+            <Setter Property="Background" Value="#ffeeee" />
+            <Setter Property="Padding" Value="8,3" />
+        </Style>
+
+        <Style Selector="Button.delete-button:pointerover">
+            <Setter Property="Background" Value="#ffcccc" />
+        </Style>
 
         <Style Selector="Border.card:nth-child(2n)">
             <Setter Property="Background" Value="#F5F5F5" />
@@ -120,7 +129,7 @@
                 <ItemsRepeater.ItemTemplate>
                     <DataTemplate>
                         <Border Classes="card" Margin="0,0,0,4" Padding="8">
-                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
                                 <!-- Status indicator -->
                                 <Border Grid.Column="0"
                                         Background="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
@@ -157,6 +166,17 @@
                                            IsVisible="{Binding StickerPresent}"
                                            Text="{Binding StickerSize, StringFormat='Размер: {0}'}"
                                            Margin="0,0,0,0" />
+                                <!-- Delete button -->
+                                <Button Grid.Column="7"
+                                        Command="{Binding DataContext.DeleteLogCommand, RelativeSource={RelativeSource AncestorType=ItemsRepeater}}"
+                                        CommandParameter="{Binding Id}"
+                                        Margin="15,0,0,0"
+                                        Classes="delete-button"
+                                        ToolTip.Tip="Удалить запись">
+                                    <PathIcon
+                                        Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"
+                                        Width="14" Height="14" />
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>

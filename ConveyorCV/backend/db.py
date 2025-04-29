@@ -44,3 +44,26 @@ def paginate_validation_logs(start_date=None, end_date=None, page=1, page_size=1
         return result
     finally:
         db.close()
+
+def delete_validation_log_by_id(log_id: int):
+    """Delete a specific validation log by ID"""
+    db = get_db_session()
+    try:
+        log = db.query(ValidationLog).filter(ValidationLog.id == log_id).first()
+        if log:
+            db.delete(log)
+            db.commit()
+            return {"success": True, "message": f"Log with ID {log_id} deleted successfully"}
+        return {"success": False, "message": f"Log with ID {log_id} not found"}
+    finally:
+        db.close()
+
+def delete_all_validation_logs():
+    """Delete all validation logs"""
+    db = get_db_session()
+    try:
+        count = db.query(ValidationLog).delete()
+        db.commit()
+        return {"success": True, "message": f"{count} logs deleted successfully"}
+    finally:
+        db.close()

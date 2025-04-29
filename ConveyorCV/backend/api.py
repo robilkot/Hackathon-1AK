@@ -18,7 +18,7 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
-from backend.db import paginate_validation_logs
+from backend.db import paginate_validation_logs, delete_validation_log_by_id
 from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings
@@ -206,6 +206,17 @@ def get_validation_logs(
     """Get validation logs with date filtering and pagination"""
     return paginate_validation_logs(start_date, end_date, page, page_size)
 
+
+@app.delete("/validation/logs/{log_id}")
+def delete_validation_log(log_id: int):
+    """Delete a specific validation log by ID"""
+    return delete_validation_log_by_id(log_id)
+
+
+@app.delete("/validation/logs")
+def delete_all_validation_logs():
+    """Delete all validation logs from the database"""
+    return delete_all_validation_logs()
 
 @app.get("/example", response_class=HTMLResponse)
 def get_example_html():
