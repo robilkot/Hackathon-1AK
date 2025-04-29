@@ -3,9 +3,13 @@ import base64
 import json
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
+from dataclasses import dataclass, field
 
 from datetime import datetime
 from json import JSONEncoder
+from sqlalchemy import create_engine, Column, Integer, Float, Boolean, DateTime, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 from enum import IntEnum
 
 import cv2
@@ -86,7 +90,7 @@ class StickerValidationResult:
     sticker_size: Optional[Tuple[float, float]] = None
     sticker_rotation: Optional[float] = None
     seq_number: int = 0
-    detected_at: datetime = datetime.now()
+    detected_at: datetime = field(default_factory=datetime.now)
 
     def to_dict(self):
         """Convert to a format matching C# StickerValidationResultDTO"""
@@ -174,3 +178,64 @@ class StreamingMessage:
     def __init__(self, type: StreamingMessageType, content: StreamingMessageContent) -> None:
         self.type = type
         self.content = json.dumps(content.to_dict(), cls=DefaultJsonEncoder)
+
+Base = declarative_base()
+
+class ValidationLog(Base):
+    __tablename__ = "validation_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, index=True)
+    seq_number = Column(Integer)
+    sticker_present = Column(Boolean)
+    sticker_matches_design = Column(Boolean, nullable=True)
+    sticker_position_x = Column(Float, nullable=True)
+    sticker_position_y = Column(Float, nullable=True)
+    sticker_size_width = Column(Float, nullable=True)
+    sticker_size_height = Column(Float, nullable=True)
+    sticker_rotation = Column(Float, nullable=True)
+
+    def to_dict(self):
+        """Convert ValidationLog to a format suitable for API response"""
+        return {
+            "id": self.id,
+            "timestamp": self.timestamp,
+            "seq_number": self.seq_number,
+            "sticker_present": self.sticker_present,
+            "sticker_matches_design": self.sticker_matches_design,
+            "sticker_position": {
+                "x": self.sticker_position_x,
+                "y": self.sticker_position_y
+            } if self.sticker_position_x is not None and self.sticker_position_y is not None else None,
+            "sticker_size": {
+                "width": self.sticker_size_width,
+                "height": self.sticker_size_height
+            } if self.sticker_size_width is not None and self.sticker_size_height is not None else None,
+            "sticker_rotation": self.sticker_rotation
+        }
+
+    @classmethod
+    def paginate(cls, db, start_date=None, end_date=None, page=1, page_size=100):
+        """Class method to paginate validation logs with filtering"""
+        query = db.query(cls)
+
+        if start_date:
+            query = query.filter(cls.timestamp >= start_date)
+
+        if end_date:
+            query = query.filter(cls.timestamp <= end_date)
+
+        total_count = query.count()
+        query = query.order_by(cls.timestamp.desc())
+        query = query.offset((page - 1) * page_size).limit(page_size)
+
+        results = query.all()
+        logs = [log.to_dict() for log in results]
+
+        return {
+            "total": total_count,
+            "page": page,
+            "page_size": page_size,
+            "pages": (total_count + page_size - 1) // page_size,
+            "logs": logs
+        }
