@@ -9,6 +9,7 @@ from json import JSONEncoder
 from sqlalchemy import create_engine, Column, Integer, Float, Boolean, DateTime, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from enum import IntEnum
 
 import cv2
 import numpy as np
@@ -31,7 +32,7 @@ class StickerValidationParams:
         image_bytes = base64.b64encode(encoded_img.tobytes())
 
         return {
-            "Image": image_bytes,
+            "StickerDesign": image_bytes,
             "StickerCenter": {
                 "X": float(self.sticker_center[0]),
                 "Y": float(self.sticker_center[1])
@@ -80,7 +81,7 @@ class StickerValidationParams:
 
 
 @dataclass
-class ValidationResults:
+class StickerValidationResult:
     sticker_present: bool
     sticker_matches_design: Optional[bool] = None
     sticker_image: np.ndarray | None = None
@@ -123,6 +124,7 @@ class ValidationResults:
             "StickerRotation": float(self.sticker_rotation) if self.sticker_rotation is not None else None
         }
 
+
 @dataclass
 class DetectionContext:
     image: np.ndarray
@@ -130,10 +132,7 @@ class DetectionContext:
     seq_number: int = 0
     shape: np.ndarray | None = None  # BW mask
     processed_image: np.ndarray | None = None  # Aligned and cropped image
-    validation_results: ValidationResults | None = None
-
-
-from enum import IntEnum
+    validation_results: StickerValidationResult | None = None
 
 
 class StreamingMessageType(IntEnum):
@@ -142,15 +141,18 @@ class StreamingMessageType(IntEnum):
     PROCESSED = 3
     VALIDATION = 4
 
+
 class StreamingMessageContent(abc.ABC):
     @abc.abstractmethod
     def to_dict(self):
         """Convert to a serializable dictionary format"""
         pass
 
+
 class DefaultJsonEncoder(JSONEncoder):
     def default(self, o):
         return o.__dict__
+
 
 class ImageStreamingMessageContent(StreamingMessageContent):
     def __init__(self, image: np.ndarray) -> None:
@@ -164,7 +166,7 @@ class ImageStreamingMessageContent(StreamingMessageContent):
 
 @dataclass
 class ValidationStreamingMessageContent(StreamingMessageContent):
-    validation_result: ValidationResults
+    validation_result: StickerValidationResult
 
     def to_dict(self):
         """Convert to a format matching C# ValidationStreamingMessageContent"""

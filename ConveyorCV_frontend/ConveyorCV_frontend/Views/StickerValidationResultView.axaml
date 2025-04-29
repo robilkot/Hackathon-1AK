@@ -150,7 +150,8 @@
 					</Border>
 
 					<!--<TextBlock Text="{Binding StickerSize.Width, StringFormat='Ширина наклейки: {0:F1}'}" />-->
-					<TextBlock>
+					<TextBlock
+						IsVisible="{Binding StickerPresent}">
 						<Run Text="Поворот наклейки: "/>
 						<Run Text="{Binding Rotation, StringFormat={}{0:0.0}°}"/>
 					</TextBlock>

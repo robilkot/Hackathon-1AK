@@ -13,7 +13,7 @@ from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
 from model.model import DetectionContext, StreamingMessage, ImageStreamingMessageContent, \
-    ValidationStreamingMessageContent, StreamingMessageType
+    ValidationStreamingMessageContent, StreamingMessageType, StickerValidationParams
 from utils.downscale import downscale
 from utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
 
@@ -125,22 +125,29 @@ class StickerValidatorProcess(Process):
         self.__results_queue = validation_results_queue
         self.__ws_queue = websocket_queue
 
+    def set_validator_parameters(self, params: StickerValidationParams):
+        self.validator.set_parameters(params)
+
     def run(self):
         logger.info(f"{self.name} starting")
 
         while True:
             try:
-                context = self.__input_queue.get()
+                try:
+                    context = self.__input_queue.get(timeout=1)
 
-                if context is None:
-                    raise InterruptedError
+                    if context is None:
+                        raise InterruptedError
 
-                context = self.validator.validate(context)
-                self.__results_queue.put_nowait(context)
-                #logger.info("add context to results queue: %s", context)
-                if context.validation_results is not None:
-                    self.__ws_queue.put_nowait(StreamingMessage(StreamingMessageType.VALIDATION, ValidationStreamingMessageContent(context.validation_results)))
+                    _ = self.validator.validate(context)
+                except Empty:
+                    pass
 
+                combined_result = self.validator.get_combined_validation_result()
+
+                if combined_result is not None:
+                    self.__results_queue.put_nowait(combined_result)
+                    self.__ws_queue.put_nowait(StreamingMessage(StreamingMessageType.VALIDATION, ValidationStreamingMessageContent(combined_result)))
             except (KeyboardInterrupt, InterruptedError):
                 logger.info(f"{self.name} exiting")
                 return

@@ -74,10 +74,10 @@ shape_queue: Queue
 processed_shape_queue: Queue
 results_queue: Queue
 websocket_queue: Queue
-shape_detector_process: Process
-shape_processor_process: Process
-sticker_validator_process: Process
-validation_logger_process: Process
+shape_detector_process: ShapeDetectorProcess
+shape_processor_process: ShapeProcessorProcess
+sticker_validator_process: StickerValidatorProcess
+validation_logger_process: ValidationResultsLogger
 processes: list
 queues: list
 
@@ -109,7 +109,7 @@ def init_processes():
 init_processes()
 
 async def stream_images_async():
-    logger.info(f"stream_images_async starting")
+    logger.info(f"stream_images starting")
     last_time = datetime.datetime.now()
     while True:
         try:
@@ -122,10 +122,10 @@ async def stream_images_async():
         except queue.Empty:
             pass
         except (KeyboardInterrupt, InterruptedError):
-            logger.info(f"stream_images_async exiting")
+            logger.info(f"stream_images exiting")
             return
         except Exception as e:
-            logger.error(f"stream_images_async exception: ", str(e), type(e))
+            logger.error(f"stream_images exception: ", str(e), type(e))
 
         current_time = datetime.datetime.now()
         if current_time - last_time > datetime.timedelta(seconds=2):
@@ -134,7 +134,6 @@ async def stream_images_async():
             # print('processed_shape_queue: ', processed_shape_queue.qsize())
             # print('results_queue: ', results_queue.qsize())
             # print('websocket_queue: ', websocket_queue.qsize())
-        await asyncio.sleep(0.033)  # ~30fps
 
 
 def start_processes(background_tasks: BackgroundTasks):
@@ -186,13 +185,13 @@ async def get_sticker_parameters():
 
 @app.post("/sticker/parameters")
 async def set_sticker_parameters(params_dict: dict):
-    global sticker_validator_process, validator
+    global sticker_validator_process
+    global validator
 
     sticker_params = StickerValidationParams.from_dict(params_dict)
     logger.info(f'updated validation params: {str(sticker_params)}')
 
-    validator = StickerValidator(sticker_params)
-    sticker_validator_process.validator = validator
+    sticker_validator_process.set_validator_parameters(sticker_params)
 
     return {"status": "success", "message": "Sticker parameters updated"}
 
