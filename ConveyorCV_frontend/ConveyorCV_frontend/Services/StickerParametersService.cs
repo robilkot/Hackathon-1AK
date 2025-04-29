@@ -68,18 +68,4 @@ public class StickerParametersService
             return null;
         }
     }
-    
-    public static string ImageToBase64(string imagePath)
-    {
-        try
-        {
-            byte[] imageBytes = System.IO.File.ReadAllBytes(imagePath);
-            return Convert.ToBase64String(imageBytes);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error converting image to base64: {ex.Message}");
-            return null;
-        }
-    }
 }

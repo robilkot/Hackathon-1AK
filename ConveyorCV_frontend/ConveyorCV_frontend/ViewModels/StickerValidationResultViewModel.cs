@@ -31,19 +31,8 @@ namespace ConveyorCV_frontend.ViewModels
                     SeqNumber = value.SeqNumber ?? 0;
                     DetectionTime = value.Timestamp ?? DateTimeOffset.Now;
             
-                    // Handle image safely
-                    if (value.Image != null && value.Image.Length > 0)
-                    {
-                        try
-                        {
-                            using var ms = new MemoryStream(value.Image.ToDecodedBytes());
-                            Image = new Bitmap(ms);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error loading image: {ex.Message}");
-                        }
-                    }
+                    using var ms = new MemoryStream(value.Image.ToDecodedBytes());
+                    Image = new Bitmap(ms);
                 }
             }
         }
