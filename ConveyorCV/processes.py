@@ -137,7 +137,7 @@ class StickerValidatorProcess(Process):
 
                 context = self.validator.validate(context)
                 self.__results_queue.put_nowait(context)
-
+                #logger.info("add context to results queue: %s", context)
                 if context.validation_results is not None:
                     self.__ws_queue.put_nowait(StreamingMessage(StreamingMessageType.VALIDATION, ValidationStreamingMessageContent(context.validation_results)))
 
@@ -146,3 +146,58 @@ class StickerValidatorProcess(Process):
                 return
             except Exception as e:
                 logger.error(f"{self.name} exception: ", e)
+
+
+class ValidationResultsLogger(Process):
+    def __init__(self, results_queue: Queue, db_url: str):
+        Process.__init__(self, daemon=True)
+        self.__results_queue = results_queue
+        self.db_url = db_url
+        self.session = None
+
+    def initialize_db(self):
+        from model.model import get_db_session
+        self.session = get_db_session(self.db_url)
+
+    def run(self):
+        logger.info(f"{self.name} starting")
+        self.initialize_db()
+
+        while True:
+            try:
+                context = self.__results_queue.get()
+                #logger.info("get context from results queue: %s", context)
+                if context is None:
+                    raise InterruptedError
+
+                if context.validation_results is not None:
+                    from model.model import ValidationLog
+
+                    validation_log = ValidationLog(
+                        timestamp=context.validation_results.detected_at,
+                        seq_number=context.validation_results.seq_number,
+                        sticker_present=context.validation_results.sticker_present,
+                        sticker_matches_design=context.validation_results.sticker_matches_design,
+                        sticker_position_x=context.validation_results.sticker_position[
+                            0] if context.validation_results.sticker_position else None,
+                        sticker_position_y=context.validation_results.sticker_position[
+                            1] if context.validation_results.sticker_position else None,
+                        sticker_size_width=context.validation_results.sticker_size[
+                            0] if context.validation_results.sticker_size else None,
+                        sticker_size_height=context.validation_results.sticker_size[
+                            1] if context.validation_results.sticker_size else None,
+                        sticker_rotation=context.validation_results.sticker_rotation
+                    )
+
+                    self.session.add(validation_log)
+                    self.session.commit()
+
+            except (KeyboardInterrupt, InterruptedError):
+                logger.info(f"{self.name} exiting")
+                if self.session:
+                    self.session.close()
+                return
+            except Exception as e:
+                logger.error(f"{self.name} exception: {str(e)}")
+                if self.session:
+                    self.session.rollback()

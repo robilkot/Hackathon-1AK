@@ -6,6 +6,9 @@ from typing import Optional, Tuple, Union
 
 from datetime import datetime
 from json import JSONEncoder
+from sqlalchemy import create_engine, Column, Integer, Float, Boolean, DateTime, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 import cv2
 import numpy as np
@@ -172,3 +175,46 @@ class StreamingMessage:
     def __init__(self, type: StreamingMessageType, content: StreamingMessageContent) -> None:
         self.type = type
         self.content = json.dumps(content.to_dict(), cls=DefaultJsonEncoder)
+
+
+Base = declarative_base()
+
+class ValidationLog(Base):
+    __tablename__ = "validation_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, index=True)
+    seq_number = Column(Integer)
+    sticker_present = Column(Boolean)
+    sticker_matches_design = Column(Boolean, nullable=True)
+    sticker_position_x = Column(Float, nullable=True)
+    sticker_position_y = Column(Float, nullable=True)
+    sticker_size_width = Column(Float, nullable=True)
+    sticker_size_height = Column(Float, nullable=True)
+    sticker_rotation = Column(Float, nullable=True)
+
+    def to_dict(self):
+        """Convert ValidationLog to a format suitable for API response"""
+        return {
+            "id": self.id,
+            "timestamp": self.timestamp,
+            "seq_number": self.seq_number,
+            "sticker_present": self.sticker_present,
+            "sticker_matches_design": self.sticker_matches_design,
+            "sticker_position": {
+                "x": self.sticker_position_x,
+                "y": self.sticker_position_y
+            } if self.sticker_position_x is not None and self.sticker_position_y is not None else None,
+            "sticker_size": {
+                "width": self.sticker_size_width,
+                "height": self.sticker_size_height
+            } if self.sticker_size_width is not None and self.sticker_size_height is not None else None,
+            "sticker_rotation": self.sticker_rotation
+        }
+
+
+def get_db_session(db_url):
+    engine = create_engine(db_url)
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return SessionLocal()

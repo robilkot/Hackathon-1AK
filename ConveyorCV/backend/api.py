@@ -4,6 +4,9 @@ import logging
 import queue
 from contextlib import asynccontextmanager
 from multiprocessing import Queue, Process
+from sqlalchemy.orm import Session
+from fastapi import Depends, Query
+from typing import Optional
 
 import cv2
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
@@ -15,8 +18,8 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
-from model.model import StickerValidationParams, StreamingMessage
-from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess
+from model.model import StickerValidationParams, StreamingMessage, get_db_session, ValidationLog
+from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings
 from websocket_manager import WebSocketManager
 
@@ -74,8 +77,16 @@ websocket_queue: Queue
 shape_detector_process: Process
 shape_processor_process: Process
 sticker_validator_process: Process
+validation_logger_process: Process
 processes: list
 queues: list
+
+def get_db():
+    db = get_db_session(settings.database_url)
+    try:
+        yield db
+    finally:
+        db.close()
 
 def init_processes():
     global shape_detector_process, shape_processor_process, sticker_validator_process, processes
@@ -90,8 +101,9 @@ def init_processes():
     shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 20)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator)
+    validation_logger_process = ValidationResultsLogger(results_queue, settings.database_url)
 
-    processes = [shape_detector_process, shape_processor_process, sticker_validator_process]
+    processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
     queues = [exit_queue, shape_queue, processed_shape_queue, results_queue, websocket_queue]
 
 init_processes()
@@ -185,6 +197,44 @@ async def set_sticker_parameters(params_dict: dict):
     return {"status": "success", "message": "Sticker parameters updated"}
 
 
+def paginate_validation_logs(db, start_date=None, end_date=None, page=1, page_size=100):
+    """Helper function to paginate validation logs with filtering"""
+    query = db.query(ValidationLog)
+
+    if start_date:
+        query = query.filter(ValidationLog.timestamp >= start_date)
+
+    if end_date:
+        query = query.filter(ValidationLog.timestamp <= end_date)
+
+    total_count = query.count()
+    query = query.order_by(ValidationLog.timestamp.desc())
+    query = query.offset((page - 1) * page_size).limit(page_size)
+
+    results = query.all()
+    logs = [log.to_dict() for log in results]
+
+    return {
+        "total": total_count,
+        "page": page,
+        "page_size": page_size,
+        "pages": (total_count + page_size - 1) // page_size,
+        "logs": logs
+    }
+
+
+@app.get("/validation/logs")
+def get_validation_logs(
+        start_date: Optional[datetime.datetime] = None,
+        end_date: Optional[datetime.datetime] = None,
+        page: int = Query(1, ge=1),
+        page_size: int = Query(100, ge=1, le=1000),
+        db: Session = Depends(get_db)
+):
+    """Get validation logs with date filtering and pagination"""
+    return paginate_validation_logs(db, start_date, end_date, page, page_size)
+
+
 @app.get("/example", response_class=HTMLResponse)
 def get_example_html():
     """Return example HTML page for testing the streaming and WebSocket API"""
@@ -203,6 +253,13 @@ def get_example_html():
         .valid { background-color: #d4edda; color: #155724; }
         .invalid { background-color: #f8d7da; color: #721c24; }
         button { margin: 5px; padding: 8px 16px; }
+        .logs-section { margin-top: 30px; }
+        .logs-controls { margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        #logsTable { width: 100%; border-collapse: collapse; }
+        #logsTable th, #logsTable td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #logsTable th { background-color: #f2f2f2; }
+        .pagination { margin-top: 15px; }
+        .pagination button { margin-right: 5px; }
     </style>
 </head>
 <body>
@@ -232,6 +289,55 @@ def get_example_html():
     </div>
     <h2>Detection Events</h2>
     <div id="events"></div>
+
+    <div class="logs-section">
+        <h2>Validation Logs</h2>
+        <div class="logs-controls">
+            <label>
+                Start Date:
+                <input type="datetime-local" id="startDate">
+            </label>
+            <label>
+                End Date:
+                <input type="datetime-local" id="endDate">
+            </label>
+            <label>
+                Page:
+                <input type="number" id="page" value="1" min="1" style="width: 60px;">
+            </label>
+            <label>
+                Items per page:
+                <select id="pageSize">
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="500">500</option>
+                    <option value="1000">1000</option>
+                </select>
+            </label>
+            <button id="fetchLogsBtn">Fetch Logs</button>
+        </div>
+        <table id="logsTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Timestamp</th>
+                    <th>Seq #</th>
+                    <th>Sticker Present</th>
+                    <th>Matches Design</th>
+                    <th>Position</th>
+                    <th>Size</th>
+                    <th>Rotation</th>
+                </tr>
+            </thead>
+            <tbody id="logsTableBody"></tbody>
+        </table>
+        <div class="pagination">
+            <span id="paginationInfo">No logs fetched yet</span>
+            <button id="prevPageBtn" disabled>Previous</button>
+            <button id="nextPageBtn" disabled>Next</button>
+        </div>
+    </div>
 
     <script>
         const host = window.location.host;
@@ -284,7 +390,7 @@ def get_example_html():
                             break;
 
                         case TYPE_VALIDATION:
-                            handleValidationResult(contentObj.validation_result);
+                            handleValidationResult(contentObj.ValidationResult);
                             break;
 
                         default:
@@ -300,9 +406,9 @@ def get_example_html():
         function handleValidationResult(result) {
             const validationResults = document.getElementById('validationResults');
 
-            const stickerPresent = result.sticker_present;
-            const stickerMatchesDesign = result.sticker_matches_design;
-            const seqNumber = result.seq_number;
+            const stickerPresent = result.StickerPresent;
+            const stickerMatchesDesign = result.StickerMatchesDesign;
+            const seqNumber = result.SeqNumber;
 
             validationResults.textContent = `Object #${seqNumber}: ${stickerPresent ? 'Sticker present' : 'No sticker'}, ${stickerMatchesDesign ? 'Valid design' : 'Invalid design'}`;
             validationResults.className = stickerMatchesDesign ? 'valid' : 'invalid';
@@ -356,6 +462,91 @@ def get_example_html():
                 addEvent(`Error getting parameters: ${e.message}`);
             }
         });
+
+        // Logs handling
+        let currentPage = 1;
+        let totalPages = 0;
+        let totalLogs = 0;
+
+        document.getElementById('fetchLogsBtn').addEventListener('click', fetchLogs);
+        document.getElementById('prevPageBtn').addEventListener('click', () => {
+            if (currentPage > 1) {
+                document.getElementById('page').value = --currentPage;
+                fetchLogs();
+            }
+        });
+        document.getElementById('nextPageBtn').addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                document.getElementById('page').value = ++currentPage;
+                fetchLogs();
+            }
+        });
+
+        async function fetchLogs() {
+            try {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                const page = document.getElementById('page').value || 1;
+                const pageSize = document.getElementById('pageSize').value;
+
+                currentPage = parseInt(page);
+
+                let url = `/validation/logs?page=${page}&page_size=${pageSize}`;
+                if (startDate) url += `&start_date=${encodeURIComponent(startDate)}`;
+                if (endDate) url += `&end_date=${encodeURIComponent(endDate)}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // Update pagination info
+                totalPages = data.pages;
+                totalLogs = data.total;
+                document.getElementById('paginationInfo').textContent = 
+                    `Page ${data.page} of ${data.pages} (${data.total} logs total)`;
+
+                // Enable/disable pagination buttons
+                document.getElementById('prevPageBtn').disabled = data.page <= 1;
+                document.getElementById('nextPageBtn').disabled = data.page >= data.pages;
+
+                // Display logs
+                const tbody = document.getElementById('logsTableBody');
+                tbody.innerHTML = '';
+
+                data.logs.forEach(log => {
+                    const row = document.createElement('tr');
+
+                    // Format position and size if available
+                    const position = log.sticker_position 
+                        ? `X: ${log.sticker_position.x.toFixed(1)}, Y: ${log.sticker_position.y.toFixed(1)}` 
+                        : 'N/A';
+
+                    const size = log.sticker_size 
+                        ? `W: ${log.sticker_size.width.toFixed(1)}, H: ${log.sticker_size.height.toFixed(1)}` 
+                        : 'N/A';
+
+                    // Format timestamp
+                    const timestamp = new Date(log.timestamp).toLocaleString();
+
+                    row.innerHTML = `
+                        <td>${log.id}</td>
+                        <td>${timestamp}</td>
+                        <td>${log.seq_number}</td>
+                        <td>${log.sticker_present ? '✓' : '✗'}</td>
+                        <td>${log.sticker_matches_design === null ? 'N/A' : log.sticker_matches_design ? '✓' : '✗'}</td>
+                        <td>${position}</td>
+                        <td>${size}</td>
+                        <td>${log.sticker_rotation !== null ? log.sticker_rotation.toFixed(1) + '°' : 'N/A'}</td>
+                    `;
+
+                    tbody.appendChild(row);
+                });
+
+                addEvent(`Fetched ${data.logs.length} logs (page ${data.page}/${data.pages})`);
+            } catch (e) {
+                console.error('Error fetching logs:', e);
+                addEvent(`Error fetching logs: ${e.message}`);
+            }
+        }
     </script>
 </body>
 </html>
