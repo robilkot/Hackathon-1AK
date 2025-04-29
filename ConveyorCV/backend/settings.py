@@ -22,7 +22,7 @@ class Settings(BaseModel):
     camera: CameraSettings = Field(default_factory=CameraSettings)
     processing: ProcessingSettings = Field(default_factory=ProcessingSettings)
     bg_photo_path: str = Field(default="data/frame_empty.png")
-    sticker_design_path: str = Field(default=".data/sticker_fixed.png")
+    sticker_design_path: str = Field(default="data/sticker_fixed.png")
     camera_type: str = Field(default="video")  # Options: "video", "ip"
     database_url: str = Field(default="sqlite:///../data/validation_logs.db")
 
