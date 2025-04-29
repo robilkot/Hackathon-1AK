@@ -20,6 +20,7 @@
 		<Style Selector="NumericUpDown">
 			<Setter Property="ShowButtonSpinner" Value="False"/>
 			<Setter Property="FormatString" Value="0.0"/>
+			<Setter Property="MaxWidth" Value="40"/>
 		</Style>
 	</UserControl.Styles>
 
@@ -33,6 +34,7 @@
 			IsExpanded="True"
 			VerticalAlignment="Top"
 			HorizontalAlignment="Left"
+			Width="325"
 			Classes="container">
 			<Expander.Header>
 				<TextBlock
@@ -42,132 +44,138 @@
 					FontSize="20"
 					Text="Параметры макета"/>
 			</Expander.Header>
+
+			<ScrollViewer
+				Padding="0,0,15,0"
+				HorizontalScrollBarVisibility="Disabled"
+				VerticalScrollBarVisibility="Auto">
 				
-			<StackPanel
-				Spacing="5">
-				<Grid
-					RowDefinitions="auto, auto"
-					ColumnDefinitions="auto, *">
-					<TextBlock 
-						Grid.Column="0"
-						Text="Файл: "/>
-					<TextBlock Grid.Column="1"
-						Text="{Binding ImagePath, StringFormat='{}{0}', TargetNullValue='не выбран'}">
-					</TextBlock>
-					<Button 
-						Grid.Row="1" 
+				<StackPanel
+					Spacing="5">
+					<Grid
+						RowDefinitions="auto, auto"
+						ColumnDefinitions="auto, *">
+						<TextBlock 
+							Grid.Column="0"
+							Text="Файл: "/>
+						<TextBlock Grid.Column="1"
+							Text="{Binding ImagePath, StringFormat='{}{0}', TargetNullValue='не выбран'}">
+						</TextBlock>
+						<Button 
+							Grid.Row="1" 
+							Grid.ColumnSpan="2"
+							HorizontalAlignment="Stretch"
+							HorizontalContentAlignment="Center"
+							Command="{Binding SelectImageCommand}"
+							Content="Открыть файл"/>
+					</Grid>
+				
+					<Separator/>
+
+					<Grid
+						ColumnDefinitions="*, auto">
+						<TextBlock
+							Grid.Column="0"
+							VerticalAlignment="Center"
+							Text="Длина аккумулятора: "/>
+						<NumericUpDown
+							Grid.Column="1"
+							FormatString="0.0"
+							VerticalContentAlignment="Center"
+							Value="{Binding AccSize.Width}"/>
+					</Grid>
+
+					<Grid
+						ColumnDefinitions="*, auto">
+						<TextBlock
+							Grid.Column="0"
+							VerticalAlignment="Center"
+							Text="Высота аккумулятора: "/>
+						<NumericUpDown
+							Grid.Column="1"
+							VerticalContentAlignment="Center"
+							Value="{Binding AccSize.Height}"/>
+					</Grid>
+
+					<Separator/>
+
+					<Grid
+						ColumnDefinitions="*, auto">
+						<TextBlock
+							Grid.Column="0"
+							VerticalAlignment="Center"
+							Text="Длина наклейки: "/>
+						<NumericUpDown
+							Grid.Column="1"
+							VerticalContentAlignment="Center"
+							Value="{Binding StickerSize.Width}"/>
+					</Grid>
+
+					<Grid
+						ColumnDefinitions="*, auto">
+						<TextBlock
+							Grid.Column="0"
+							VerticalAlignment="Center"
+							Text="Высота наклейки: "/>
+						<NumericUpDown
+							Grid.Column="1"
+							VerticalContentAlignment="Center"
+							Value="{Binding StickerSize.Height}"/>
+					</Grid>
+
+
+					<Grid
+						ColumnDefinitions="*, auto">
+						<TextBlock
+							Grid.Column="0"
+							VerticalAlignment="Center"
+							Text="Поворот наклейки: "/>
+						<NumericUpDown
+							Grid.Column="1"
+							Increment="0.1"
+							VerticalContentAlignment="Center"
+							Value="{Binding Rotation}"/>
+					</Grid>
+
+
+					<Grid
+						ColumnDefinitions="*, auto">
+						<TextBlock
+							Grid.Column="0"
+							VerticalAlignment="Center"
+							Text="Центр наклейки (X): "/>
+						<NumericUpDown
+							Grid.Column="1"
+							VerticalContentAlignment="Center"
+							Value="{Binding Center.X}"/>
+					</Grid>
+
+					<Grid
+						ColumnDefinitions="*, auto">
+						<TextBlock
+							Grid.Column="0"
+							VerticalAlignment="Center"
+							Text="Центр наклейки (Y): "/>
+						<NumericUpDown
+							Grid.Column="1"
+							VerticalContentAlignment="Center"
+							Value="{Binding Center.Y}"/>
+					</Grid>
+				
+					<Button
 						Grid.ColumnSpan="2"
 						HorizontalAlignment="Stretch"
 						HorizontalContentAlignment="Center"
-						Command="{Binding SelectImageCommand}"
-						Content="Открыть файл"/>
-				</Grid>
+						Command="{Binding ApplyParametersCommand}"
+						Content="Применить"/>
 				
-				<Separator/>
-
-				<Grid
-					ColumnDefinitions="*, auto">
 					<TextBlock
-						Grid.Column="0"
-						VerticalAlignment="Center"
-						Text="Длина аккумулятора: "/>
-					<NumericUpDown
-						Grid.Column="1"
-						FormatString="0.0"
-						VerticalContentAlignment="Center"
-						Value="{Binding AccSize.Width}"/>
-				</Grid>
-
-				<Grid
-					ColumnDefinitions="*, auto">
-					<TextBlock
-						Grid.Column="0"
-						VerticalAlignment="Center"
-						Text="Высота аккумулятора: "/>
-					<NumericUpDown
-						Grid.Column="1"
-						VerticalContentAlignment="Center"
-						Value="{Binding AccSize.Height}"/>
-				</Grid>
-
-				<Separator/>
-
-				<Grid
-					ColumnDefinitions="*, auto">
-					<TextBlock
-						Grid.Column="0"
-						VerticalAlignment="Center"
-						Text="Длина наклейки: "/>
-					<NumericUpDown
-						Grid.Column="1"
-						VerticalContentAlignment="Center"
-						Value="{Binding StickerSize.Width}"/>
-				</Grid>
-
-				<Grid
-					ColumnDefinitions="*, auto">
-					<TextBlock
-						Grid.Column="0"
-						VerticalAlignment="Center"
-						Text="Высота наклейки: "/>
-					<NumericUpDown
-						Grid.Column="1"
-						VerticalContentAlignment="Center"
-						Value="{Binding StickerSize.Height}"/>
-				</Grid>
-
-
-				<Grid
-					ColumnDefinitions="*, auto">
-					<TextBlock
-						Grid.Column="0"
-						VerticalAlignment="Center"
-						Text="Поворот наклейки: "/>
-					<NumericUpDown
-						Grid.Column="1"
-						Increment="0.1"
-						VerticalContentAlignment="Center"
-						Value="{Binding Rotation}"/>
-				</Grid>
-
-
-				<Grid
-					ColumnDefinitions="*, auto">
-					<TextBlock
-						Grid.Column="0"
-						VerticalAlignment="Center"
-						Text="Центр наклейки (X): "/>
-					<NumericUpDown
-						Grid.Column="1"
-						VerticalContentAlignment="Center"
-						Value="{Binding Center.X}"/>
-				</Grid>
-
-				<Grid
-					ColumnDefinitions="*, auto">
-					<TextBlock
-						Grid.Column="0"
-						VerticalAlignment="Center"
-						Text="Центр наклейки (Y): "/>
-					<NumericUpDown
-						Grid.Column="1"
-						VerticalContentAlignment="Center"
-						Value="{Binding Center.Y}"/>
-				</Grid>
-				
-				<Button
-					Grid.ColumnSpan="2"
-					HorizontalAlignment="Stretch"
-					HorizontalContentAlignment="Center"
-					Command="{Binding ApplyParametersCommand}"
-					Content="Применить"/>
-				
-				<TextBlock
-					Grid.ColumnSpan="2"
-					Margin="0,5,0,0"
-					TextWrapping="Wrap"
-					Text="{Binding Status}"/>
-			</StackPanel>
+						Grid.ColumnSpan="2"
+						Margin="0,5,0,0"
+						TextWrapping="Wrap"
+						Text="{Binding Status}"/>
+				</StackPanel>
+			</ScrollViewer>
 		</Expander>
 
 		<paz:ZoomBorder 

@@ -18,6 +18,9 @@
 		</Style>
     </Application.Styles>
 	<Application.Resources>
+		<SolidColorBrush x:Key="ExpanderHeaderBackground" Color="White"/>
+		<SolidColorBrush x:Key="ExpanderHeaderBackgroundPointerOver" Color="White"/>
+		<SolidColorBrush x:Key="ExpanderHeaderBackgroundPressed" Color="#EEEEEE"/>
 		<!--<converters:BoolToValueConverter x:Key="BoolToValueConverter"/>-->
 	</Application.Resources>
 </Application>
