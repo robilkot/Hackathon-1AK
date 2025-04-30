@@ -89,6 +89,8 @@ def init_processes():
     queues = [exit_queue, shape_queue, processed_shape_queue, results_queue, websocket_queue]
 
 
+init_processes()
+
 async def stream_images_async():
     logger.info(f"stream_images starting")
     last_time = datetime.datetime.now()
@@ -120,8 +122,6 @@ async def stream_images_async():
 
 
 def start_processes(background_tasks: BackgroundTasks):
-    init_processes()
-
     for process in processes:
         if not process.is_alive():
             process.start()
@@ -198,6 +198,7 @@ def delete_validation_log(log_id: int):
 def delete_all_validation_logs():
     """Delete all validation logs from the database"""
     return delete_all_validation_logs()
+
 
 @app.get("/example", response_class=HTMLResponse)
 def get_example_html():

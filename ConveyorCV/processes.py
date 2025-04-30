@@ -124,10 +124,15 @@ class StickerValidatorProcess(Process):
         self.__input_queue = image_queue
         self.__results_queue = validation_results_queue
         self.__ws_queue = websocket_queue
+        self.__params_queue = Queue()
 
     def set_validator_parameters(self, params: StickerValidationParams):
         logger.info(f"Set validator parameters: {params}")
-        self.validator.set_parameters(params)
+        if params.sticker_design is not None:
+            logger.info(f"Sticker design image shape: {params.sticker_design.shape}")
+        else:
+            logger.info("Warning: Sticker design image is None")
+        self.__params_queue.put(params)
 
     def get_validator_parameters(self) -> StickerValidationParams:
         return self.validator.get_parameters()
@@ -138,11 +143,17 @@ class StickerValidatorProcess(Process):
         while True:
             try:
                 try:
+                    new_params = self.__params_queue.get_nowait()
+                    logger.info(f"Updating validator parameters inside process")
+                    self.validator.set_parameters(new_params)
+                except Empty:
+                    pass
+
+                try:
                     context = self.__input_queue.get(timeout=1)
 
                     if context is None:
                         raise InterruptedError
-
                     _ = self.validator.validate(context)
                 except Empty:
                     pass

@@ -117,6 +117,7 @@
                         <ColumnDefinition Width="Auto" SharedSizeGroup="DesignStatusCol" />
                         <ColumnDefinition Width="Auto" SharedSizeGroup="PositionCol" />
                         <ColumnDefinition Width="Auto" SharedSizeGroup="SizeCol" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="RotationCol" />
 						<ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" SharedSizeGroup="ActionsCol" />
                     </Grid.ColumnDefinitions>
@@ -134,7 +135,9 @@
                                HorizontalAlignment="Center" />
                     <TextBlock Grid.Column="6" Text="Размер наклейки" FontWeight="Bold" Margin="0,0,0,0"
                                HorizontalAlignment="Center" />
-                    <TextBlock Grid.Column="8" Text="Действия" FontWeight="Bold" Margin="15,0,0,0"
+                    <TextBlock Grid.Column="7" Text="Поворот наклейки" FontWeight="Bold" Margin="0,0,15,0"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="9" Text="Действия" FontWeight="Bold" Margin="15,0,0,0"
                                HorizontalAlignment="Center" />
                 </Grid>
             </Border>
@@ -157,6 +160,7 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="DesignStatusCol" />
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="PositionCol" />
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="SizeCol" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="RotationCol" />
 										<ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="ActionsCol" />
                                     </Grid.ColumnDefinitions>
@@ -189,7 +193,11 @@
 										<Run Text="{Binding StickerSize.Width, StringFormat='Ш: {0}'}"/>
 										<Run Text="{Binding StickerSize.Height, StringFormat='В: {0}'}"/>
 									</TextBlock>
-                                    <Button Grid.Column="8"
+                                    <TextBlock Grid.Column="7"
+                                               IsVisible="{Binding StickerPresent}"
+                                               Text="{Binding StickerRotation, StringFormat='°{0:F1}'}"
+                                               Margin="0,0,15,0" HorizontalAlignment="Center" />
+                                    <Button Grid.Column="9"
                                             Command="{Binding DataContext.DeleteLogCommand, RelativeSource={RelativeSource AncestorType=ItemsRepeater}}"
                                             CommandParameter="{Binding Id}"
                                             Margin="15,0,0,0"
