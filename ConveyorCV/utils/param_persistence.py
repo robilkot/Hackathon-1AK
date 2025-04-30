@@ -1,11 +1,14 @@
 import json
 import os
 import cv2
+
+from backend.settings import get_settings
 from model.model import StickerValidationParams
 
-PARAMS_FILE = "../data/sticker_params.json"
-DEFAULT_STICKER_DESIGN_PATH = "../data/sticker_fixed.png"
-
+settings = get_settings()
+PARAMS_FILE = settings.sticker_params_file
+DEFAULT_STICKER_DESIGN_PATH = settings.sticker_design_path
+STICKER_OUTPUT_PATH = settings.sticker_output_path
 
 def get_default_sticker_parameters():
     """Return default sticker validation parameters"""
@@ -27,15 +30,14 @@ def save_sticker_parameters(params: StickerValidationParams):
     """Save sticker parameters to a JSON file with the sticker design as a separate image file"""
     os.makedirs(os.path.dirname(PARAMS_FILE), exist_ok=True)
 
-    image_path = "../data/sticker_design.png"
-    cv2.imwrite(image_path, params.sticker_design)
+    cv2.imwrite(STICKER_OUTPUT_PATH, params.sticker_design)
 
     params_dict = params.to_dict()
 
     if "StickerDesign" in params_dict:
         del params_dict["StickerDesign"]
 
-    params_dict["sticker_design_path"] = image_path
+    params_dict["sticker_design_path"] = STICKER_OUTPUT_PATH
 
     with open(PARAMS_FILE, 'w') as f:
         json.dump(params_dict, f)
