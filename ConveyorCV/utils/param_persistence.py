@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import cv2
@@ -54,8 +55,12 @@ def load_sticker_parameters():
 
         image_path = params_dict.pop("sticker_design_path")
         if os.path.exists(image_path):
-            params_dict["sticker_design"] = cv2.imread(image_path)
-            return StickerValidationParams.from_dict(params_dict)
+            image = cv2.imread(image_path)
+            if image is not None:
+                _, encoded_img = cv2.imencode('.png', image)
+                image_bytes = base64.b64encode(encoded_img.tobytes())
+                params_dict["StickerDesign"] = image_bytes
+                return StickerValidationParams.from_dict(params_dict)
     except Exception as e:
         print(f"Error loading sticker parameters: {e}")
 
