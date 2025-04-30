@@ -42,7 +42,10 @@ namespace ConveyorCV_frontend.Models
         PointF? StickerPosition,
         SizeF? StickerSize,
         double? StickerRotation
-    );
+    )
+    {
+        public bool IsItemValid => StickerPresent && StickerMatchesDesign!.Value; // todo: is it okay to hold logic here?
+    }
     
     public record ValidationLogResponseDTO(
         int Total,

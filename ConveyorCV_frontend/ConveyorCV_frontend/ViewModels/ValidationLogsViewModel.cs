@@ -1,14 +1,12 @@
+using ConveyorCV_frontend.Models;
+using ConveyorCV_frontend.Services;
+using DynamicData;
+using ReactiveUI;
 using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Threading.Tasks;
-using ConveyorCV_frontend.Models;
-using ConveyorCV_frontend.Services;
-using ReactiveUI;
-using DynamicData;
-using DynamicData.Binding;
 
 namespace ConveyorCV_frontend.ViewModels
 {
@@ -22,110 +20,33 @@ namespace ConveyorCV_frontend.ViewModels
         public ReadOnlyObservableCollection<ValidationLogItemDTO> Logs => _logs;
 
 
-        private DateTimeOffset? _startDateTime;
-        public DateTimeOffset? StartDateTime
+        private DateTime _startDate;
+        public DateTime StartDate
         {
-            get => _startDateTime;
-            set
-            {
-                this.RaiseAndSetIfChanged(ref _startDateTime, value);
-                if (value.HasValue && !_updatingStartText)
-                {
-                    _updatingStartText = true;
-                    StartDateTimeText = value.Value.ToString("dd.MM.yyyy HH:mm");
-                    _updatingStartText = false;
-                }
-            }
+            get => _startDate;
+            set => this.RaiseAndSetIfChanged(ref _startDate, value);
+        }
+        private TimeSpan _startTime;
+        public TimeSpan StartTime
+        {
+            get => _startTime;
+            set => this.RaiseAndSetIfChanged(ref _startTime, value);
         }
 
-        private DateTimeOffset? _endDateTime;
-
-        public DateTimeOffset? EndDateTime
+        private DateTime _endDate;
+        public DateTime EndDate
         {
-            get => _endDateTime;
-            set
-            {
-                this.RaiseAndSetIfChanged(ref _endDateTime, value);
-                if (value.HasValue && !_updatingEndText)
-                {
-                    _updatingEndText = true;
-                    EndDateTimeText = value.Value.ToString("dd.MM.yyyy HH:mm");
-                    _updatingEndText = false;
-                }
-            }
+            get => _endDate;
+            set => this.RaiseAndSetIfChanged(ref _endDate, value);
+        }
+        private TimeSpan _endTime;
+        public TimeSpan EndTime
+        {
+            get => _endTime;
+            set => this.RaiseAndSetIfChanged(ref _endTime, value);
         }
 
-        private string _startDateTimeText = string.Empty;
-        private bool _updatingStartText;
 
-        public string StartDateTimeText
-        {
-            get => _startDateTimeText;
-            set
-            {
-                this.RaiseAndSetIfChanged(ref _startDateTimeText, value);
-                if (!_updatingStartText)
-                {
-                    _updatingStartText = true;
-                    if (DateTimeOffset.TryParseExact(value, "dd.MM.yyyy HH:mm", null,
-                            System.Globalization.DateTimeStyles.None, out var dt))
-                    {
-                        StartDateTime = dt;
-                        StartDateTimeError = null;
-                    }
-                    else
-                    {
-                        StartDateTimeError = "Неверный формат. Используйте ДД.ММ.ГГГГ ЧЧ:ММ";
-                    }
-
-                    _updatingStartText = false;
-                }
-            }
-        }
-
-        private string _endDateTimeText = string.Empty;
-        private bool _updatingEndText;
-
-        public string EndDateTimeText
-        {
-            get => _endDateTimeText;
-            set
-            {
-                this.RaiseAndSetIfChanged(ref _endDateTimeText, value);
-                if (!_updatingEndText)
-                {
-                    _updatingEndText = true;
-                    if (DateTimeOffset.TryParseExact(value, "dd.MM.yyyy HH:mm", null,
-                            System.Globalization.DateTimeStyles.None, out var dt))
-                    {
-                        EndDateTime = dt;
-                        EndDateTimeError = null;
-                    }
-                    else
-                    {
-                        EndDateTimeError = "Неверный формат. Используйте ДД.ММ.ГГГГ ЧЧ:ММ";
-                    }
-
-                    _updatingEndText = false;
-                }
-            }
-        }
-
-        private string _startDateTimeError;
-
-        public string StartDateTimeError
-        {
-            get => _startDateTimeError;
-            set => this.RaiseAndSetIfChanged(ref _startDateTimeError, value);
-        }
-
-        private string _endDateTimeError;
-
-        public string EndDateTimeError
-        {
-            get => _endDateTimeError;
-            set => this.RaiseAndSetIfChanged(ref _endDateTimeError, value);
-        }
 
         private int _currentPage = 1;
 
@@ -173,36 +94,41 @@ namespace ConveyorCV_frontend.ViewModels
         public ReactiveCommand<Unit, Unit> FirstPageCommand { get; }
         public ReactiveCommand<Unit, Unit> LastPageCommand { get; }
         public ReactiveCommand<int, Unit> DeleteLogCommand { get; }
-        
+
         public ValidationLogsViewModel()
         {
             _logService = new ValidationLogService();
             _logService.StatusChanged += message => Status = message;
             _logService.ErrorOccurred += message => Status = message;
-        
+
             _logsCache = new SourceCache<ValidationLogItemDTO, int>(x => x.Id);
             _logsCache.Connect()
                 .Bind(out _logs)
                 .Subscribe()
                 .DisposeWith(_disposables);
-            
+
             LoadLogsCommand = ReactiveCommand.CreateFromTask(LoadLogs);
             NextPageCommand = ReactiveCommand.CreateFromTask(NextPage);
             PreviousPageCommand = ReactiveCommand.CreateFromTask(PreviousPage);
             FirstPageCommand = ReactiveCommand.CreateFromTask(FirstPage);
             LastPageCommand = ReactiveCommand.CreateFromTask(LastPage);
             DeleteLogCommand = ReactiveCommand.CreateFromTask<int>(DeleteLog);
-        
 
-            EndDateTime = DateTimeOffset.Now;
-            StartDateTime = EndDateTime.Value.AddDays(-1);
-        
+            StartDate = DateTime.Now - TimeSpan.FromDays(1);
+            StartTime = StartDate.TimeOfDay;
+
+            EndDate = DateTime.Now;
+            EndTime = EndDate.TimeOfDay + TimeSpan.FromHours(1);
+
             _ = LoadLogs();
         }
 
         private async Task LoadLogs()
         {
-            var response = await _logService.GetLogsAsync(StartDateTime, EndDateTime, CurrentPage, PageSize);
+            DateTimeOffset start = StartDate - StartDate.TimeOfDay + StartTime;
+            DateTimeOffset end = EndDate - StartDate.TimeOfDay + EndTime;
+
+            var response = await _logService.GetLogsAsync(start, end, CurrentPage, PageSize);
 
             if (response != null)
             {
@@ -246,21 +172,21 @@ namespace ConveyorCV_frontend.ViewModels
             CurrentPage = TotalPages;
             await LoadLogs();
         }
-        
+
         private async Task DeleteLog(int logId)
         {
             var success = await _logService.DeleteLogAsync(logId);
             if (success)
             {
                 _logsCache.Remove(logId);
-                
+
                 TotalRecords--;
                 TotalPages = (int)Math.Ceiling(TotalRecords / (double)PageSize);
 
                 if (CurrentPage > TotalPages && TotalPages > 0)
                     await LoadLogs();
             }
-        } 
+        }
         public void Dispose()
         {
             _disposables.Dispose();

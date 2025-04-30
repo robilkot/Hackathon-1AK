@@ -1,8 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-
-using ConveyorCV_frontend.ViewModels;
 using ConveyorCV_frontend.Views;
 
 namespace ConveyorCV_frontend;
