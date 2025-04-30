@@ -70,7 +70,7 @@ queues: list
 
 
 def init_processes():
-    global shape_detector_process, shape_processor_process, sticker_validator_process, processes
+    global shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process, processes
     global exit_queue, shape_queue, processed_shape_queue, websocket_queue, results_queue, queues
 
     exit_queue = Queue()
@@ -87,9 +87,6 @@ def init_processes():
 
     processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
     queues = [exit_queue, shape_queue, processed_shape_queue, results_queue, websocket_queue]
-
-
-init_processes()
 
 
 async def stream_images_async():

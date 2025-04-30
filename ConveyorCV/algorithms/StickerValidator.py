@@ -1,5 +1,5 @@
 import datetime
-from threading import Timer
+from threading import Timer, Lock
 
 import cv2
 from numpy import median
@@ -19,7 +19,7 @@ class StickerValidator:
         self.__last_processed_acc_number: int = 1
         self.__last_processed_acc_detections: list[DetectionContext] = []
         self.__validation_timer: Timer | None = None
-        self.__validation_max_interval: float = 1.5  # Maximum interval in seconds before performing combined validation
+        self.__validation_max_interval: float = 1  # Maximum interval in seconds before performing combined validation
 
     def set_parameters(self, sticker_params: StickerValidationParams):
         self.__params = sticker_params
@@ -92,6 +92,8 @@ class StickerValidator:
         return result
 
     def __process_combined_validation(self):
+        if self.__validation_timer is not None:
+            self.__validation_timer.cancel()
         self.__validation_timer = None
 
         results = list([context.validation_results for context in self.__last_processed_acc_detections])
@@ -132,3 +134,4 @@ class StickerValidator:
 
         self.__last_processed_acc_detections = []
         self.__combined_validation_result = result
+        self.__last_processed_combined_acc_number = self.__last_processed_acc_number
