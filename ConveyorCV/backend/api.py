@@ -22,6 +22,7 @@ from backend.db import paginate_validation_logs, delete_validation_log_by_id
 from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings
+from utils.param_persistence import save_sticker_parameters
 from websocket_manager import WebSocketManager
 
 
@@ -51,23 +52,9 @@ if settings.camera_type == "video":
 else:
     camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
 
-# todo delete if this is bullshit
-sticker_design = cv2.imread(settings.sticker_design_path)
-if sticker_design is None:
-    raise Exception("sticker_design not found")
-
-# todo make it correct
-sticker_validator_params = StickerValidationParams(
-    sticker_design=sticker_design,
-    sticker_center=(50.0, 50.0),  # Default center point
-    acc_size=(200.0, 200.0),  # Default acceptable size
-    sticker_size=(100.0, 100.0),  # Default sticker size
-    sticker_rotation=0.0  # Default rotation angle
-)
-
 detector = ShapeDetector()
 processor = ShapeProcessor()
-validator = StickerValidator(sticker_validator_params)
+validator = StickerValidator()
 
 exit_queue: Queue
 shape_queue: Queue
@@ -179,20 +166,17 @@ async def stop_stream():
 
 @app.get("/sticker/parameters")
 async def get_sticker_parameters():
-    params = validator.get_parameters()
+    global sticker_validator_process
+    params = sticker_validator_process.get_validator_parameters()
     return params.to_dict()
 
 
 @app.post("/sticker/parameters")
 async def set_sticker_parameters(params_dict: dict):
-    global sticker_validator_process
-    global validator
-
+    global sticker_validator_process, validator
     sticker_params = StickerValidationParams.from_dict(params_dict)
-    logger.info(f'updated validation params: {str(sticker_params)}')
-
     sticker_validator_process.set_validator_parameters(sticker_params)
-
+    save_sticker_parameters(sticker_params)
     return {"status": "success", "message": "Sticker parameters updated"}
 
 

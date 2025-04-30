@@ -8,8 +8,13 @@ from algorithms.InvariantTM import invariant_match_template
 from model.model import StickerValidationParams, DetectionContext, StickerValidationResult
 
 class StickerValidator:
-    def __init__(self, params: StickerValidationParams):
-        self.__params = params
+    def __init__(self, params: StickerValidationParams = None):
+        if params is None:
+            from utils.param_persistence import get_sticker_parameters
+            self.__params = get_sticker_parameters()
+        else:
+            self.__params = params
+
         self.__combined_validation_result: StickerValidationResult | None = None
         self.__last_processed_acc_number: int = 1
         self.__last_processed_acc_detections: list[DetectionContext] = []

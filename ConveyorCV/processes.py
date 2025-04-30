@@ -126,7 +126,11 @@ class StickerValidatorProcess(Process):
         self.__ws_queue = websocket_queue
 
     def set_validator_parameters(self, params: StickerValidationParams):
+        logger.info(f"Set validator parameters: {params}")
         self.validator.set_parameters(params)
+
+    def get_validator_parameters(self) -> StickerValidationParams:
+        return self.validator.get_parameters()
 
     def run(self):
         logger.info(f"{self.name} starting")
