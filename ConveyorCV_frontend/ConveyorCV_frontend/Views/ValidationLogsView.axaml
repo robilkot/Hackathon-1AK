@@ -1,0 +1,271 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
+    xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="ConveyorCV_frontend.Views.ValidationLogsView"
+    x:DataType="vm:ValidationLogsViewModel">
+
+    <UserControl.Resources>
+        <converters:BoolToValueConverter
+            x:Key="StickerPresentTextConverter"
+            TrueValue="Наклейка присутствует"
+            FalseValue="Наклейка отсутствует" />
+        <converters:BoolToValueConverter
+            x:Key="StickerMatchesDesignTextConverter"
+            TrueValue="Макет верный"
+            FalseValue="Макет неверный" />
+        <converters:BoolToValueConverter
+            x:Key="BoolToColorConverter"
+            TrueValue="#00cc00"
+            FalseValue="Red" />
+    </UserControl.Resources>
+
+    <Design.DataContext>
+        <vm:ValidationLogsViewModel />
+    </Design.DataContext>
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="Black" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="2" />
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Background" Value="#E0E0E0" />
+            <Setter Property="Foreground" Value="Black" />
+            <Setter Property="CornerRadius" Value="3" />
+        </Style>
+
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#CCCCCC" />
+        </Style>
+
+        <Style Selector="CalendarDatePicker">
+            <Setter Property="Width" Value="150" />
+            <Setter Property="Margin" Value="2" />
+        </Style>
+
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DDDDDD" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style Selector="Button.delete-button">
+            <Setter Property="Background" Value="#ffeeee" />
+            <Setter Property="Padding" Value="8,3" />
+        </Style>
+
+        <Style Selector="Button.delete-button:pointerover">
+            <Setter Property="Background" Value="#ffcccc" />
+        </Style>
+
+        <Style Selector="Border.card:nth-child(2n)">
+            <Setter Property="Background" Value="#F5F5F5" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="0,25,0,0"
+          RowDefinitions="Auto,*">
+        <!-- Filter Panel -->
+        <Border Grid.Row="0" Padding="15" Margin="0,0,0,10" Background="{DynamicResource SystemRegionBrush}"
+                CornerRadius="3">
+            <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" HorizontalAlignment="Stretch">
+                <TextBlock Grid.Column="0" Text="С:" Margin="0,0,5,0" />
+
+                <Panel Grid.Column="1">
+                    <TextBox Text="{Binding StartDateTimeText}"
+                             Watermark="ДД.ММ.ГГГГ ЧЧ:ММ"
+                             UseFloatingWatermark="True" />
+                    <TextBlock Text="{Binding StartDateTimeError}"
+                               Foreground="Red"
+                               FontSize="10"
+                               VerticalAlignment="Bottom"
+                               Margin="5,0,0,-15"
+                               IsVisible="{Binding StartDateTimeError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </Panel>
+
+                <TextBlock Grid.Column="2" Text="По:" Margin="10,0,5,0" />
+
+                <Panel Grid.Column="3">
+                    <TextBox Text="{Binding EndDateTimeText}"
+                             Watermark="ДД.ММ.ГГГГ ЧЧ:ММ"
+                             UseFloatingWatermark="True" />
+                    <TextBlock Text="{Binding EndDateTimeError}"
+                               Foreground="Red"
+                               FontSize="10"
+                               VerticalAlignment="Bottom"
+                               Margin="5,0,0,-15"
+                               IsVisible="{Binding EndDateTimeError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </Panel>
+
+                <Button Grid.Column="4" Margin="10,0,0,0" Command="{Binding LoadLogsCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <PathIcon
+                            Data="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M6,20H18V12H14.5L14,11.5V10H6V20M12,17.75L9.75,15.5L11.16,14.09L12,14.94L15.34,11.61L16.75,13"
+                            Width="16" Height="16" />
+                        <TextBlock Text="Загрузить журнал" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+        <!-- Center container for Headers, List and pagination -->
+        <Grid Grid.Row="1"
+              HorizontalAlignment="Center"
+              MaxWidth="1200"
+              Margin="20,0"
+              Grid.IsSharedSizeScope="True"
+              RowDefinitions="Auto,*,Auto">
+            <!-- Column Headers -->
+            <Border Grid.Row="0" Background="#E8E8E8" Padding="8" Margin="5,5,5,0" CornerRadius="3,3,0,0">
+                <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="StatusCol" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="NumberCol" />
+                        <ColumnDefinition Width="*" SharedSizeGroup="TimestampCol" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="StickerStatusCol" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="DesignStatusCol" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="PositionCol" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="SizeCol" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ActionsCol" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Width="16" Margin="0,0,10,0" HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="№" FontWeight="Bold" Margin="5,0,15,0"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="Дата и время" FontWeight="Bold" Margin="0,0,15,0"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="Статус наклейки" FontWeight="Bold" Margin="0,0,15,0"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="4" Text="Статус макета" FontWeight="Bold" Margin="0,0,15,0"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="5" Text="Позиция" FontWeight="Bold" Margin="0,0,15,0"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="6" Text="Размер" FontWeight="Bold" Margin="0,0,0,0"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="7" Text="Действия" FontWeight="Bold" Margin="15,0,0,0"
+                               HorizontalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Logs List -->
+            <ScrollViewer Grid.Row="1" Margin="5">
+                <ItemsRepeater ItemsSource="{Binding Logs}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Spacing="8" Orientation="Vertical" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <Border Classes="card" Margin="0,0,0,4" Padding="8" HorizontalAlignment="Stretch">
+                                <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="StatusCol" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="NumberCol" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="TimestampCol" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="StickerStatusCol" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="DesignStatusCol" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="PositionCol" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SizeCol" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="ActionsCol" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0"
+                                            Background="{Binding StickerPresent, Converter={StaticResource BoolToColorConverter}}"
+                                            Width="6" Height="24" CornerRadius="3" Margin="0,0,10,0"
+                                            HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SeqNumber}" FontWeight="SemiBold"
+                                               Margin="5,0,15,0" />
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Timestamp, StringFormat={}{0:dd.MM.yyyy HH:mm:ss}}"
+                                               Margin="0,0,15,0" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding StickerPresent, Converter={StaticResource StickerPresentTextConverter}}"
+                                               Margin="0,0,15,0" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="4"
+                                               IsVisible="{Binding StickerPresent}"
+                                               Text="{Binding StickerMatchesDesign, Converter={StaticResource StickerMatchesDesignTextConverter}}"
+                                               Margin="0,0,15,0" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="5"
+                                               IsVisible="{Binding StickerPresent}"
+                                               Text="{Binding StickerPosition, StringFormat='Позиция: {0}'}"
+                                               Margin="0,0,15,0" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="6"
+                                               IsVisible="{Binding StickerPresent}"
+                                               Text="{Binding StickerSize, StringFormat='Размер: {0}'}"
+                                               Margin="0,0,0,0" HorizontalAlignment="Center" />
+                                    <Button Grid.Column="7"
+                                            Command="{Binding DataContext.DeleteLogCommand, RelativeSource={RelativeSource AncestorType=ItemsRepeater}}"
+                                            CommandParameter="{Binding Id}"
+                                            Margin="15,0,0,0"
+                                            Classes="delete-button"
+                                            ToolTip.Tip="Удалить запись" HorizontalAlignment="Center">
+                                        <PathIcon
+                                            Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"
+                                            Width="14" Height="14" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+
+            <!-- Pagination Panel -->
+            <Border Grid.Row="2" Background="{DynamicResource SystemRegionBrush}" Margin="5" Padding="10"
+                    CornerRadius="3">
+                <Grid ColumnDefinitions="*,Auto,*">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Spacing="5">
+                        <TextBlock Text="{Binding Status}" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="5">
+                        <Button Command="{Binding FirstPageCommand}" ToolTip.Tip="Первая страница">
+                            <PathIcon
+                                Data="M18.41,16.59L13.82,12L18.41,7.41L17,6L11,12L17,18L18.41,16.59M6,6H8V18H6V6Z"
+                                Width="14" Height="14" />
+                        </Button>
+                        <Button Command="{Binding PreviousPageCommand}" ToolTip.Tip="Предыдущая страница">
+                            <PathIcon Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Width="14"
+                                      Height="14" />
+                        </Button>
+
+                        <Border Background="White" Padding="10,5" CornerRadius="3" Width="90">
+                            <TextBlock HorizontalAlignment="Center">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="{}{0} из {1}">
+                                        <Binding Path="CurrentPage" />
+                                        <Binding Path="TotalPages" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </Border>
+
+                        <Button Command="{Binding NextPageCommand}" ToolTip.Tip="Следующая страница">
+                            <PathIcon Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" Width="14"
+                                      Height="14" />
+                        </Button>
+                        <Button Command="{Binding LastPageCommand}" ToolTip.Tip="Последняя страница">
+                            <PathIcon Data="M5.59,7.41L10.18,12L5.59,16.59L7,18L13,12L7,6L5.59,7.41M16,6H18V18H16V6Z"
+                                      Width="14" Height="14" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Run Text="Записей:" />
+                        <Run Text="{Binding TotalRecords}" />
+                    </TextBlock>
+                </Grid>
+            </Border>
+        </Grid>
+
+
+    </Grid>
+</UserControl>

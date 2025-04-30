@@ -198,20 +198,20 @@ class ValidationLog(Base):
     def to_dict(self):
         """Convert ValidationLog to a format suitable for API response"""
         return {
-            "id": self.id,
-            "timestamp": self.timestamp,
-            "seq_number": self.seq_number,
-            "sticker_present": self.sticker_present,
-            "sticker_matches_design": self.sticker_matches_design,
-            "sticker_position": {
+            "Id": self.id,
+            "Timestamp": self.timestamp,
+            "SeqNumber": self.seq_number,
+            "StickerPresent": self.sticker_present,
+            "StickerMatchesDesign": self.sticker_matches_design,
+            "StickerPosition": {
                 "x": self.sticker_position_x,
                 "y": self.sticker_position_y
             } if self.sticker_position_x is not None and self.sticker_position_y is not None else None,
-            "sticker_size": {
+            "StickerSize": {
                 "width": self.sticker_size_width,
                 "height": self.sticker_size_height
             } if self.sticker_size_width is not None and self.sticker_size_height is not None else None,
-            "sticker_rotation": self.sticker_rotation
+            "StickerRotation": self.sticker_rotation
         }
 
     @classmethod
@@ -233,9 +233,9 @@ class ValidationLog(Base):
         logs = [log.to_dict() for log in results]
 
         return {
-            "total": total_count,
-            "page": page,
-            "page_size": page_size,
-            "pages": (total_count + page_size - 1) // page_size,
-            "logs": logs
+            "Total": total_count,
+            "Page": page,
+            "PageSize": page_size,
+            "Pages": (total_count + page_size - 1) // page_size,
+            "Logs": logs
         }

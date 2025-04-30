@@ -18,7 +18,7 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
-from backend.db import paginate_validation_logs
+from backend.db import paginate_validation_logs, delete_validation_log_by_id
 from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings
@@ -206,6 +206,17 @@ def get_validation_logs(
     """Get validation logs with date filtering and pagination"""
     return paginate_validation_logs(start_date, end_date, page, page_size)
 
+
+@app.delete("/validation/logs/{log_id}")
+def delete_validation_log(log_id: int):
+    """Delete a specific validation log by ID"""
+    return delete_validation_log_by_id(log_id)
+
+
+@app.delete("/validation/logs")
+def delete_all_validation_logs():
+    """Delete all validation logs from the database"""
+    return delete_all_validation_logs()
 
 @app.get("/example", response_class=HTMLResponse)
 def get_example_html():
@@ -484,35 +495,34 @@ def get_example_html():
                 const tbody = document.getElementById('logsTableBody');
                 tbody.innerHTML = '';
 
-                data.logs.forEach(log => {
-                    const row = document.createElement('tr');
-
-                    // Format position and size if available
-                    const position = log.sticker_position 
-                        ? `X: ${log.sticker_position.x.toFixed(1)}, Y: ${log.sticker_position.y.toFixed(1)}` 
-                        : 'N/A';
-
-                    const size = log.sticker_size 
-                        ? `W: ${log.sticker_size.width.toFixed(1)}, H: ${log.sticker_size.height.toFixed(1)}` 
-                        : 'N/A';
-
-                    // Format timestamp
-                    const timestamp = new Date(log.timestamp).toLocaleString();
-
-                    row.innerHTML = `
-                        <td>${log.id}</td>
-                        <td>${timestamp}</td>
-                        <td>${log.seq_number}</td>
-                        <td>${log.sticker_present ? '✓' : '✗'}</td>
-                        <td>${log.sticker_matches_design === null ? 'N/A' : log.sticker_matches_design ? '✓' : '✗'}</td>
-                        <td>${position}</td>
-                        <td>${size}</td>
-                        <td>${log.sticker_rotation !== null ? log.sticker_rotation.toFixed(1) + '°' : 'N/A'}</td>
-                    `;
-
-                    tbody.appendChild(row);
-                });
-
+                data.Logs.forEach(log => {
+                const row = document.createElement('tr');
+            
+                // Format position and size if available
+                const Position = log.StickerPosition 
+                    ? `X: ${log.StickerPosition.x.toFixed(1)}, Y: ${log.StickerPosition.y.toFixed(1)}` 
+                    : 'N/A';
+            
+                const Size = log.StickerSize 
+                    ? `W: ${log.StickerSize.width.toFixed(1)}, H: ${log.StickerSize.height.toFixed(1)}` 
+                    : 'N/A';
+            
+                // Format Timestamp
+                const Timestamp = new Date(log.Timestamp).toLocaleString();  // Fixed variable declaration
+            
+                row.innerHTML = `
+                    <td>${log.Id}</td>
+                    <td>${Timestamp}</td>
+                    <td>${log.SeqNumber}</td>
+                    <td>${log.StickerPresent ? '✓' : '✗'}</td>
+                    <td>${log.StickerMatchesDesign === null ? 'N/A' : log.StickerMatchesDesign ? '✓' : '✗'}</td>
+                    <td>${Position}</td>
+                    <td>${Size}</td>
+                    <td>${log.StickerRotation !== null ? log.StickerRotation.toFixed(1) + '°' : 'N/A'}</td>
+                `;
+            
+                tbody.appendChild(row);
+            });
                 addEvent(`Fetched ${data.logs.length} logs (page ${data.page}/${data.pages})`);
             } catch (e) {
                 console.error('Error fetching logs:', e);
