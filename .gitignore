@@ -179,3 +179,5 @@ cython_debug/
 
 #DB file
 validation_logs.db
+
+.DS_Store

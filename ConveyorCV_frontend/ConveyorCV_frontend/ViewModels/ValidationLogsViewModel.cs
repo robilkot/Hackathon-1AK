@@ -2,28 +2,27 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive;
+using System.Reactive.Disposables;
 using System.Threading.Tasks;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using ReactiveUI;
+using DynamicData;
+using DynamicData.Binding;
 
 namespace ConveyorCV_frontend.ViewModels
 {
-    public class ValidationLogsViewModel : ViewModelBase
+    public class ValidationLogsViewModel : ViewModelBase, IDisposable
     {
         private readonly ValidationLogService _logService;
+        private readonly SourceCache<ValidationLogItemDTO, int> _logsCache;
+        private readonly CompositeDisposable _disposables = new();
 
-        private ObservableCollection<ValidationLogItemDTO> _logs;
-
-        public ObservableCollection<ValidationLogItemDTO> Logs
-        {
-            get => _logs;
-            private set => this.RaiseAndSetIfChanged(ref _logs, value);
-        }
+        private ReadOnlyObservableCollection<ValidationLogItemDTO> _logs;
+        public ReadOnlyObservableCollection<ValidationLogItemDTO> Logs => _logs;
 
 
         private DateTimeOffset? _startDateTime;
-
         public DateTimeOffset? StartDateTime
         {
             get => _startDateTime;
@@ -136,7 +135,7 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _currentPage, value);
         }
 
-        private int _pageSize = 10;
+        private int _pageSize = 15;
 
         public int PageSize
         {
@@ -181,8 +180,12 @@ namespace ConveyorCV_frontend.ViewModels
             _logService.StatusChanged += message => Status = message;
             _logService.ErrorOccurred += message => Status = message;
         
-            Logs = new ObservableCollection<ValidationLogItemDTO>();
-        
+            _logsCache = new SourceCache<ValidationLogItemDTO, int>(x => x.Id);
+            _logsCache.Connect()
+                .Bind(out _logs)
+                .Subscribe()
+                .DisposeWith(_disposables);
+            
             LoadLogsCommand = ReactiveCommand.CreateFromTask(LoadLogs);
             NextPageCommand = ReactiveCommand.CreateFromTask(NextPage);
             PreviousPageCommand = ReactiveCommand.CreateFromTask(PreviousPage);
@@ -200,13 +203,15 @@ namespace ConveyorCV_frontend.ViewModels
         private async Task LoadLogs()
         {
             var response = await _logService.GetLogsAsync(StartDateTime, EndDateTime, CurrentPage, PageSize);
-        
+
             if (response != null)
             {
-                Logs.Clear();
-                foreach (var log in response.Logs)
-                    Logs.Add(log);
-            
+                _logsCache.Edit(innerCache =>
+                {
+                    innerCache.Clear();
+                    innerCache.AddOrUpdate(response.Logs);
+                });
+
                 TotalPages = response.Pages;
                 TotalRecords = response.Total;
             }
@@ -247,16 +252,18 @@ namespace ConveyorCV_frontend.ViewModels
             var success = await _logService.DeleteLogAsync(logId);
             if (success)
             {
-                var logToRemove = Logs.FirstOrDefault(log => log.Id == logId);
-                if (logToRemove != null)
-                    Logs.Remove(logToRemove);
+                _logsCache.Remove(logId);
                 
                 TotalRecords--;
                 TotalPages = (int)Math.Ceiling(TotalRecords / (double)PageSize);
-        
+
                 if (CurrentPage > TotalPages && TotalPages > 0)
-                    await LoadLogs(); 
+                    await LoadLogs();
             }
+        } 
+        public void Dispose()
+        {
+            _disposables.Dispose();
         }
     }
 }
