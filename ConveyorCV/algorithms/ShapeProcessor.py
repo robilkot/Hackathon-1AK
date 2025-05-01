@@ -51,6 +51,46 @@ class ShapeProcessor:
         # Return the ordered coordinates.
         return rect.astype('int').tolist()
 
+    def __filter_shadow_points(self, contour, image_height):
+        """Filter contour points to reduce shadow effects"""
+        # Define top and bottom 5% regions
+        top_region_height = int(image_height * 0.05)
+        bottom_region_height = int(image_height * 0.95)
+
+        # Separate points into regions
+        top_points = []
+        bottom_points = []
+        middle_points = []
+
+        for point in contour:
+            x, y = point[0]
+            if y < top_region_height:
+                top_points.append(point)
+            elif y > bottom_region_height:
+                bottom_points.append(point)
+            else:
+                middle_points.append(point)
+
+        # Find leftmost and rightmost points in each region
+        filtered_points = []
+
+        # For top region
+        if top_points:
+            leftmost_top = min(top_points, key=lambda p: p[0][0])
+            rightmost_top = max(top_points, key=lambda p: p[0][0])
+            filtered_points.extend([leftmost_top, rightmost_top])
+
+        # For bottom region
+        if bottom_points:
+            leftmost_bottom = min(bottom_points, key=lambda p: p[0][0])
+            rightmost_bottom = max(bottom_points, key=lambda p: p[0][0])
+            filtered_points.extend([leftmost_bottom, rightmost_bottom])
+
+        # Include some middle points to maintain shape
+        filtered_points.extend(middle_points)
+
+        return np.array(filtered_points)
+
     def __find_dest(self, pts):
         (tl, tr, br, bl) = pts
         # Finding the maximum width.
@@ -78,14 +118,18 @@ class ShapeProcessor:
     def process(self, context: DetectionContext) -> DetectionContext:
         image_source = context.image
         shape = context.shape
-        (y, x, Null) = context.image.shape
-        contours, hierarchy = cv2.findContours(shape, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-        p1 = (x * COEFF_DETECTION_BORDER_LEFT , y * COEFF_DETECTION_LINE_HEIGHT)
+        (y, x, _) = context.image.shape
+        contours, _ = cv2.findContours(shape, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        p1 = (x * COEFF_DETECTION_BORDER_LEFT, y * COEFF_DETECTION_LINE_HEIGHT)
         p2 = (x * COEFF_DETECTION_BORDER_RIGHT, y * COEFF_DETECTION_LINE_HEIGHT)
 
         for c in contours:
-            epsilon = 0.05 * cv2.arcLength(c, True)
-            corners = cv2.approxPolyDP(c, epsilon, True)
+            # Filter shadow points first
+            filtered_contour = self.__filter_shadow_points(c, y)
+
+            epsilon = 0.05 * cv2.arcLength(filtered_contour, True)
+            corners = cv2.approxPolyDP(filtered_contour, epsilon, True)
+
             bool_fits = True
             if bool_fits:
                 bool_fits = bool_fits & (cv2.pointPolygonTest(corners, p1, False) > 0)
