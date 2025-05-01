@@ -4,6 +4,7 @@ using DynamicData;
 using ReactiveUI;
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Threading.Tasks;
@@ -126,18 +127,16 @@ namespace ConveyorCV_frontend.ViewModels
         private async Task LoadLogs()
         {
             DateTimeOffset start = StartDate - StartDate.TimeOfDay + StartTime;
-            DateTimeOffset end = EndDate - StartDate.TimeOfDay + EndTime;
+            DateTimeOffset end = EndDate - EndDate.TimeOfDay + EndTime;
 
             var response = await _logService.GetLogsAsync(start, end, CurrentPage, PageSize);
 
             if (response != null)
             {
-                _logsCache.Edit(innerCache =>
-                {
-                    innerCache.Clear();
-                    innerCache.AddOrUpdate(response.Logs);
-                });
-
+                _logsCache.Edit(innerCache => innerCache.Clear());
+                var sortedLogs = response.Logs.OrderByDescending(log => log.Timestamp).ToList();
+                _logsCache.Edit(innerCache => innerCache.AddOrUpdate(sortedLogs));
+        
                 TotalPages = response.Pages;
                 TotalRecords = response.Total;
             }

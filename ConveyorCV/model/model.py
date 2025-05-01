@@ -129,7 +129,7 @@ class StickerValidationResult:
 @dataclass
 class DetectionContext:
     image: np.ndarray
-    detected_at: datetime = datetime.now
+    detected_at: datetime = field(default_factory=datetime.now)
     seq_number: int = 0
     shape: np.ndarray | None = None  # BW mask
     processed_image: np.ndarray | None = None  # Aligned and cropped image
