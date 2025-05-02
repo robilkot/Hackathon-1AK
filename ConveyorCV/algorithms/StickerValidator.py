@@ -86,15 +86,15 @@ class StickerValidator:
             ROTATION_TOLERANCE_DEGREES = 5.0  # degrees
             SIZE_RATIO_TOLERANCE = 0.15  # % difference in expected ratio
 
-            expected_center_x = img_width * self.__params.sticker_center[0] / 100
-            expected_center_y = img_height * self.__params.sticker_center[1] / 100
+            expected_center_x = self.__params.sticker_center[0]
+            expected_center_y = self.__params.sticker_center[1]
 
             position_tolerance_x = img_width * POSITION_TOLERANCE_PERCENT / 100
             position_tolerance_y = img_height * POSITION_TOLERANCE_PERCENT / 100
 
             logger.info(f"POSITION CALC - seq#{context.seq_number} "
-                        f"expected_center_x:{expected_center_x:.1f} (img_width:{img_width}*center:{self.__params.sticker_center[0]:.1f}/100) "
-                        f"expected_center_y:{expected_center_y:.1f} (img_height:{img_height}*center:{self.__params.sticker_center[1]:.1f}/100) "
+                        f"expected_center_x:{expected_center_x:.1f} (direct pixel coordinate) "
+                        f"expected_center_y:{expected_center_y:.1f} (direct pixel coordinate) "
                         f"actual_x:{x:.1f} actual_y:{y:.1f} "
                         f"tolerance_x:{position_tolerance_x:.1f} tolerance_y:{position_tolerance_y:.1f}")
 

@@ -286,7 +286,7 @@ def get_example_html():
                     <tr><td>Detection Time</td><td id="detectionTime">-</td></tr>
                     <tr><td>Sticker Present</td><td id="stickerPresent">-</td></tr>
                     <tr><td>Sticker Matches Design</td><td id="stickerMatches">-</td></tr>
-                    <tr><td>Sticker Position (X, Y)</td><td id="stickerPosition">-</td></tr>
+                    <tr><td>Sticker Center Position (X, Y)</td><td id="stickerPosition">-</td></tr>
                     <tr><td>Sticker Size (W, H)</td><td id="stickerSize">-</td></tr>
                     <tr><td>Rotation</td><td id="stickerRotation">-</td></tr>
                 </table>
