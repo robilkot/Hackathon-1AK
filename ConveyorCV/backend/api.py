@@ -226,6 +226,30 @@ def get_example_html():
         #logsTable th { background-color: #f2f2f2; }
         .pagination { margin-top: 15px; }
         .pagination button { margin-right: 5px; }
+        /* New Latest Validation Styles */
+        #latestValidation { 
+            margin-top: 20px; 
+            border: 2px solid #007bff; 
+            border-radius: 5px; 
+            padding: 15px; 
+            background-color: #f8f9fa; 
+        }
+        .validation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .validation-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status-success { background-color: #d4edda; color: #155724; }
+        .status-warning { background-color: #fff3cd; color: #856404; }
+        .status-danger { background-color: #f8d7da; color: #721c24; }
+        .validation-details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .validation-image { text-align: center; }
     </style>
 </head>
 <body>
@@ -248,10 +272,30 @@ def get_example_html():
             <h2>Processed Objects</h2>
             <img id="processedStream" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
         </div>
-        <div>
+ <div id="latestValidation">
+        <div class="validation-header">
             <h2>Latest Validation</h2>
-            <div id="validationResults">Waiting for validation results...</div>
+            <div id="validationStatus" class="validation-status">No data</div>
         </div>
+        <div class="validation-details">
+            <div>
+                <h3>Results</h3>
+                <table id="validationTable">
+                    <tr><th>Property</th><th>Value</th></tr>
+                    <tr><td>Sequence Number</td><td id="seqNumber">-</td></tr>
+                    <tr><td>Detection Time</td><td id="detectionTime">-</td></tr>
+                    <tr><td>Sticker Present</td><td id="stickerPresent">-</td></tr>
+                    <tr><td>Sticker Matches Design</td><td id="stickerMatches">-</td></tr>
+                    <tr><td>Sticker Center Position (X, Y)</td><td id="stickerPosition">-</td></tr>
+                    <tr><td>Sticker Size (W, H)</td><td id="stickerSize">-</td></tr>
+                    <tr><td>Rotation</td><td id="stickerRotation">-</td></tr>
+                </table>
+            </div>
+            <div class="validation-image">
+                <img id="validationImage" src="" alt="Validation result" style="max-height: 200px; display: none;">
+            </div>
+        </div>
+    </div>
     </div>
     <h2>Detection Events</h2>
     <div id="events"></div>
@@ -310,8 +354,8 @@ def get_example_html():
         <div class="param-group">
             <h3>Sticker Center</h3>
             <div class="form-row">
-                <label>X (%): <input type="number" id="centerX" step="0.1" min="0" max="100"></label>
-                <label>Y (%): <input type="number" id="centerY" step="0.1" min="0" max="100"></label>
+                <label>X: <input type="number" id="centerX" step="1" min="0"></label>
+                <label>Y: <input type="number" id="centerY" step="1" min="0"></label>
             </div>
         </div>
         
@@ -419,57 +463,86 @@ def get_example_html():
                 addEvent('WebSocket error: ' + error);
             };
 
-            ws.onmessage = (event) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    const type = message.type;
-                    const contentObj = JSON.parse(message.content);
-
-                    switch (type) {
-                        case TYPE_RAW:
-                            document.getElementById('rawStream').src = 'data:image/jpeg;base64,' + contentObj.image;
-                            break;
-
-                        case TYPE_SHAPE:
-                            document.getElementById('shapeStream').src = 'data:image/jpeg;base64,' + contentObj.image;
-                            break;
-
-                        case TYPE_PROCESSED:
-                            document.getElementById('processedStream').src = 'data:image/jpeg;base64,' + contentObj.image;
-                            break;
-
-                        case TYPE_VALIDATION:
-                            handleValidationResult(contentObj.ValidationResult);
-                            break;
-
-                        default:
-                            console.log('Unknown message type:', type);
-                    }
-                } catch (e) {
-                    console.error('Error parsing message:', e);
-                    console.error('Raw message:', event.data);
-                }
-            };
+            ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // Process different message types
+            if (data.type === 1) { // RAW
+                document.getElementById('rawStream').src = 'data:image/jpeg;base64,' + JSON.parse(data.content).image;
+            } else if (data.type === 2) { // SHAPE
+                document.getElementById('shapeStream').src = 'data:image/jpeg;base64,' + JSON.parse(data.content).image;
+            } else if (data.type === 3) { // PROCESSED
+                document.getElementById('processedStream').src = 'data:image/jpeg;base64,' + JSON.parse(data.content).image;
+            } else if (data.type === 4) { // VALIDATION
+                const validationData = JSON.parse(data.content).ValidationResult;
+                updateLatestValidation(validationData);
+                addEvent(`Validation received: Seq#${validationData.SeqNumber}, Present: ${validationData.StickerPresent}, Matches: ${validationData.StickerMatchesDesign}`);
+            }
+        };
         }
 
-        function handleValidationResult(result) {
-            const validationResults = document.getElementById('validationResults');
-
-            const stickerPresent = result.StickerPresent;
-            const stickerMatchesDesign = result.StickerMatchesDesign;
-            const seqNumber = result.SeqNumber;
-
-            validationResults.textContent = `Object #${seqNumber}: ${stickerPresent ? 'Sticker present' : 'No sticker'}, ${stickerMatchesDesign ? 'Valid design' : 'Invalid design'}`;
-            validationResults.className = stickerMatchesDesign ? 'valid' : 'invalid';
-
-            addEvent(`[${new Date().toLocaleTimeString()}] Validation #${seqNumber}: Sticker present: ${stickerPresent}, Matches design: ${stickerMatchesDesign}`);
+        function updateLatestValidation(result) {
+            // Update status indicator
+            const statusElement = document.getElementById('validationStatus');
+            statusElement.textContent = getStatusText(result);
+            statusElement.className = 'validation-status ' + getStatusClass(result);
+            
+            // Update table values
+            document.getElementById('seqNumber').textContent = result.SeqNumber;
+            document.getElementById('detectionTime').textContent = new Date(result.Timestamp).toLocaleString();
+            document.getElementById('stickerPresent').textContent = result.StickerPresent;
+            document.getElementById('stickerMatches').textContent = result.StickerMatchesDesign !== null ? result.StickerMatchesDesign : 'N/A';
+            
+            // Update position, size, rotation
+            if (result.StickerPosition) {
+                document.getElementById('stickerPosition').textContent = 
+                    `X: ${result.StickerPosition.X.toFixed(1)}, Y: ${result.StickerPosition.Y.toFixed(1)}`;
+            } else {
+                document.getElementById('stickerPosition').textContent = 'N/A';
+            }
+            
+            if (result.StickerSize) {
+                document.getElementById('stickerSize').textContent = 
+                    `W: ${result.StickerSize.Width.toFixed(1)}, H: ${result.StickerSize.Height.toFixed(1)}`;
+            } else {
+                document.getElementById('stickerSize').textContent = 'N/A';
+            }
+            
+            document.getElementById('stickerRotation').textContent = 
+                result.StickerRotation !== null ? `${result.StickerRotation.toFixed(1)}°` : 'N/A';
+            
+            // Update image
+            const imgElement = document.getElementById('validationImage');
+            if (result.Image) {
+                imgElement.src = 'data:image/png;base64,' + result.Image;
+                imgElement.style.display = 'block';
+            } else {
+                imgElement.style.display = 'none';
+            }
         }
-
-        function addEvent(message) {
-            const div = document.createElement('div');
-            div.textContent = message;
-            document.getElementById('events').appendChild(div);
-            document.getElementById('events').scrollTop = document.getElementById('events').scrollHeight;
+        
+        function getStatusText(result) {
+            if (!result.StickerPresent) {
+                return 'NO STICKER';
+            } else if (result.StickerMatchesDesign === false) {
+                return 'INVALID PLACEMENT';
+            } else if (result.StickerMatchesDesign === true) {
+                return 'VALID';
+            } else {
+                return 'UNKNOWN';
+            }
+        }
+        
+        function getStatusClass(result) {
+            if (!result.StickerPresent) {
+                return 'status-warning';
+            } else if (result.StickerMatchesDesign === false) {
+                return 'status-danger';
+            } else if (result.StickerMatchesDesign === true) {
+                return 'status-success';
+            } else {
+                return '';
+            }
         }
 
         // Initialize WebSocket connection
