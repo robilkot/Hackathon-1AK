@@ -55,24 +55,25 @@ namespace ConveyorCV_frontend.Services
 
         public async Task DisconnectAsync()
         {
-            if (_webSocket is not null && _webSocket.State == WebSocketState.Open)
+            try
             {
-                try
+                _tokenSource?.Cancel();
+
+                if (_webSocket is not null && _webSocket.State == WebSocketState.Open)
                 {
                     var closeToken = new CancellationTokenSource(TimeSpan.FromSeconds(2)).Token;
                     await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", closeToken);
                 }
-                catch
-                {
-                    /* Ignore errors during close */
-                }
-            }
 
-            _tokenSource?.Cancel();
-            _tokenSource?.Dispose();
-            _tokenSource = null;
-            _webSocket?.Dispose();
-            _webSocket = null;
+                _tokenSource?.Dispose();
+                _tokenSource = null;
+                _webSocket?.Dispose();
+                _webSocket = null;
+            }
+            catch
+            {
+                /* Ignore errors during close */
+            }
         }
 
         public async Task StartStreamAsync()
@@ -128,8 +129,7 @@ namespace ConveyorCV_frontend.Services
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        await webSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing",
-                            CancellationToken.None);
+                        await webSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
                         ConnectionClosed?.Invoke();
                         break;
                     }
@@ -154,11 +154,11 @@ namespace ConveyorCV_frontend.Services
                                 Debug.WriteLine($"[WebSocketService] Processing VALIDATION message");
                                 Debug.WriteLine(
                                     $"[WebSocketService] Content to deserialize: {message.content.Substring(0, Math.Min(message.content.Length, 200))}...");
-                                
+
                                 var validationContent =
                                     JsonSerializer.Deserialize<ValidationStreamingMessageContent>(message.content,
                                         options);
-                                
+
                                 Debug.WriteLine($"[WebSocketService] Validation deserialization result:");
                                 Debug.WriteLine(
                                     $"  - Timestamp: {validationContent?.ValidationResult?.Timestamp}");
@@ -207,7 +207,6 @@ namespace ConveyorCV_frontend.Services
             catch (OperationCanceledException)
             {
                 // Normal cancellation, don't report as error
-                ConnectionClosed?.Invoke();
             }
             catch (Exception ex)
             {
@@ -217,6 +216,9 @@ namespace ConveyorCV_frontend.Services
                     ErrorOccurred?.Invoke(ex);
                 }
 
+            }
+            finally
+            {
                 ConnectionClosed?.Invoke();
             }
         }

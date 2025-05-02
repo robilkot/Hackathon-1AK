@@ -14,8 +14,6 @@ namespace ConveyorCV_frontend.Converters
             { StreamStatus.Starting, "Запуск трансляции..."},
             { StreamStatus.Running, "Подключено"},
             { StreamStatus.Stopping, "Отключение..."},
-            { StreamStatus.LostConnection, "Соединение с трансляцией потеряно"},
-            { StreamStatus.Error, "Ошибка соединения"},
             };
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {

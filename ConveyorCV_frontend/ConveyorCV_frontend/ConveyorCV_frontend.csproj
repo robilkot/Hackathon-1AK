@@ -19,6 +19,7 @@
     <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.3.0" />
     <PackageReference Include="DynamicData" Version="9.2.2" />
+    <PackageReference Include="Notification.Avalonia" Version="2.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +29,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Views\SettingsWindow.axaml.cs">
+      <DependentUpon>SettingsWindow.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\SettingsView.axaml.cs">
+      <DependentUpon>SettingsView.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\ValidationLogsWindow.axaml.cs">
       <SubType>Code</SubType>
       <DependentUpon>ValidationLogsWindow.axaml</DependentUpon>

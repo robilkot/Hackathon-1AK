@@ -1,4 +1,5 @@
 ﻿using Avalonia.Media.Imaging;
+using Avalonia.Notification;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using ReactiveUI;
@@ -7,20 +8,16 @@ using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace ConveyorCV_frontend.ViewModels;
 
 public class StickerParametersViewModel : ViewModelBase
 {
+    public INotificationMessageManager Manager { get; set; } = new NotificationMessageManager();
+
     private readonly StickerParametersService _stickerParametersService;
-    private string? _status;
-    public string? Status
-    {
-        get => _status;
-        set => this.RaiseAndSetIfChanged(ref _status, value);
-    }
+
     private string? _imagePath = null;
     public string? ImagePath
     {
@@ -45,7 +42,7 @@ public class StickerParametersViewModel : ViewModelBase
             this.RaisePropertyChanged();
         }
     }
-    
+
 
     private SizeViewModel _stickerSize = new(400f, 200f);
     public SizeViewModel StickerSize
@@ -90,14 +87,14 @@ public class StickerParametersViewModel : ViewModelBase
     public StickerParametersViewModel()
     {
         _stickerParametersService = new StickerParametersService();
-        _stickerParametersService.StatusChanged += message => Status = message;
-        _stickerParametersService.ErrorOccurred += message => Status = message;
+        _stickerParametersService.StatusChanged += msg => Manager.Success(msg);
+        _stickerParametersService.ErrorOccurred += msg => Manager.Error("Ошибка загрузки параметров", msg);
         SelectImageCommand = ReactiveCommand.CreateFromTask(SelectImage);
         var canApply = this.WhenAnyValue(x => x.Image).Select(image => image != null);
         ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParameters, canApply);
         FetchParametersCommand = ReactiveCommand.CreateFromTask(FetchParameters);
     }
-    
+
     public async Task InitializeAsync()
     {
         await FetchParameters();
@@ -122,14 +119,12 @@ public class StickerParametersViewModel : ViewModelBase
                 Image = new Bitmap(stream);
                 ImagePath = "Загружено с сервера";
             }
-    
-            UpdateHeight();
 
-            Status = "Параметры наклейки загружены с сервера";
+            UpdateHeight();
         }
         catch (Exception ex)
         {
-            Status = $"Ошибка загрузки параметров: {ex.Message}";
+            Manager.Error("Ошибка загрузки параметров", ex.Message);
         }
     }
 
@@ -157,7 +152,6 @@ public class StickerParametersViewModel : ViewModelBase
         {
             var filename = Path.GetFileName(result);
             ImagePath = result;
-            Status = $"Выбран файл: {filename}";
             LoadImage(result);
         }
     }
@@ -174,6 +168,7 @@ public class StickerParametersViewModel : ViewModelBase
             }
             catch (Exception ex)
             {
+                Manager.Error("Ошибка загрузки изображения", ex.Message);
                 Console.WriteLine($"Exception: {ex.Message}");
             }
         }

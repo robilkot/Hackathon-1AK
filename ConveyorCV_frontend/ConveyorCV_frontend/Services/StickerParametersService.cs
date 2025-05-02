@@ -24,9 +24,7 @@ public class StickerParametersService
     public async Task<bool> SetParametersAsync(StickerValidationParametersDTO parameters)
     {
         try
-        {
-            StatusChanged?.Invoke("Отправка параметров наклейки...");
-            
+        {   
             var json = JsonSerializer.Serialize(parameters, _jsonOptions);
             Console.WriteLine($"Sending parameters: {json}");
             var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -39,7 +37,7 @@ public class StickerParametersService
         }
         catch (Exception ex)
         {
-            var message = $"Ошибка отправки параметров: {ex.Message}";
+            var message = ex.Message;
             Console.WriteLine(message);
             ErrorOccurred?.Invoke(message);
             return false;
@@ -50,8 +48,6 @@ public class StickerParametersService
     {
         try
         {
-            StatusChanged?.Invoke("Получение параметров наклейки...");
-            
             var response = await _httpClient.GetAsync($"http://{_baseUrl}/sticker/parameters");
             response.EnsureSuccessStatusCode();
             
@@ -62,7 +58,7 @@ public class StickerParametersService
         }
         catch (Exception ex)
         {
-            var message = $"Ошибка получения параметров: {ex.Message}";
+            var message = ex.Message;
             Console.WriteLine(message);
             ErrorOccurred?.Invoke(message);
             return null;

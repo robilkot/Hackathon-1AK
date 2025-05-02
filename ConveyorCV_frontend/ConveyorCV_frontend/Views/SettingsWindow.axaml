@@ -6,8 +6,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:views="clr-namespace:ConveyorCV_frontend.Views"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    x:Class="ConveyorCV_frontend.Views.MainWindow"
+    x:Class="ConveyorCV_frontend.Views.SettingsWindow"
     Icon="/Assets/avalonia-logo.ico"
-    Title="ConveyorCV">
-	<views:MainView />
+    Title="Настройки">
+	<views:SettingsView />
 </Window>

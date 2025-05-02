@@ -175,12 +175,6 @@
 						HorizontalContentAlignment="Center"
 						Command="{Binding ApplyParametersCommand}"
 						Content="Применить"/>
-				
-					<TextBlock
-						Grid.ColumnSpan="2"
-						Margin="0,5,0,0"
-						TextWrapping="Wrap"
-						Text="{Binding Status}"/>
 				</StackPanel>
 			</ScrollViewer>
 		</Expander>

@@ -1,14 +1,10 @@
-﻿using System;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
-using System.Threading.Tasks;
-using Avalonia.Controls;
-using Avalonia.Controls.Documents;
+﻿using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using ReactiveUI;
+using System;
+using System.IO;
 
 namespace ConveyorCV_frontend.ViewModels
 {
@@ -21,7 +17,7 @@ namespace ConveyorCV_frontend.ViewModels
             set
             {
                 this.RaiseAndSetIfChanged(ref _lastResult, value);
-        
+
                 if (value != null)
                 {
                     StickerPresent = value.StickerPresent ?? false;
@@ -106,7 +102,7 @@ namespace ConveyorCV_frontend.ViewModels
         {
             if (obj.Content is not ValidationStreamingMessageContent validationMessage)
                 return;
-            
+
             LastResult = validationMessage.ValidationResult;
         }
 

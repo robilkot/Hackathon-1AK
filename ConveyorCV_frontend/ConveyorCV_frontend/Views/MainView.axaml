@@ -8,6 +8,7 @@
     xmlns:models="clr-namespace:ConveyorCV_frontend.Models"
     xmlns:global="clr-namespace:"
     xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters"
+    xmlns:controls="clr-namespace:Avalonia.Notification.Controls;assembly=Notification.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="ConveyorCV_frontend.Views.MainView"
     x:DataType="global:MainViewModel">
@@ -15,12 +16,24 @@
         <global:MainViewModel />
     </Design.DataContext>
 
+	<UserControl.Styles>
+		<Style Selector="TextBlock.notificationHeaderTextStyle">
+			<Setter Property="FontSize" Value="16" />
+			<Setter Property="FontWeight" Value="DemiBold" />
+		</Style>
+	</UserControl.Styles>
+
 	<UserControl.Resources>
 		<converters:StreamStatusToTextConverter
 			x:Key="StreamStatusToTextConverter"/>
 	</UserControl.Resources>
     <Panel>
-	    <Menu 
+		<controls:NotificationMessageContainer 
+			ZIndex="1"
+			MaxWidth="500"
+			Manager="{Binding Manager}" />
+
+		<Menu 
 			Background="White"
 			Margin="5"
 			ZIndex="2"
@@ -31,7 +44,7 @@
 				Click="MenuItem_Click"/>
 		    <MenuItem
 				Header="Настройки"
-				Command="{Binding OpenSettingsCommand}"/>
+				Click="MenuItem_Click_1"/>
 	    </Menu>
 
         <Grid 

@@ -7,6 +7,7 @@
 
     <Application.Styles>
         <FluentTheme />
+		<StyleInclude Source="avares://Notification.Avalonia/Themes/Generic.xaml" />
 		<Style
 			Selector="Expander.container">
 			<Setter

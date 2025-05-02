@@ -7,7 +7,5 @@
         Starting,
         Running,
         Stopping,
-        LostConnection,
-        Error,
     }
 }

@@ -1,4 +1,9 @@
-﻿using Avalonia.Media.Imaging;
+﻿using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Notification;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using ConveyorCV_frontend.ViewModels;
@@ -12,6 +17,8 @@ using System.Threading.Tasks;
 
 public class MainViewModel : ViewModelBase
 {
+    public INotificationMessageManager Manager { get; } = new NotificationMessageManager();
+
     private readonly WebSocketService _webSocketService;
 
     private StickerParametersViewModel _stickerParameters;
@@ -49,17 +56,25 @@ public class MainViewModel : ViewModelBase
     {
         _webSocketService = new WebSocketService();
         _webSocketService.MessageReceived += _webSocketService_MessageReceived;
-        _webSocketService.ConnectionClosed += OnConnectionClosed;
         _webSocketService.ErrorOccurred += OnErrorOccurred;
+        _webSocketService.ConnectionClosed += _webSocketService_ConnectionClosed;
 
-        StickerParameters = new StickerParametersViewModel();
+        StickerParameters = new StickerParametersViewModel()
+        {
+            Manager = Manager
+        };
         _ = StickerParameters.InitializeAsync();
         ValidationResult = new StickerValidationResultViewModel(_webSocketService);
 
-        var canStart = this.WhenAnyValue(x => x.Status).Select(status => status is StreamStatus.Disconnected or StreamStatus.LostConnection or StreamStatus.Error);
-        var canStop = canStart.Select(value => !value);
-        StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync, canStart);
-        StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync, canStop);
+        //var canStart = this.WhenAnyValue(x => x.Status).Select(status => status is StreamStatus.Disconnected or StreamStatus.LostConnection or StreamStatus.Error);
+        //var canStop = canStart.Select(value => !value);
+        StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync);
+        StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync);
+    }
+
+    private void _webSocketService_ConnectionClosed()
+    {
+        Status = StreamStatus.Disconnected;
     }
 
     private void _webSocketService_MessageReceived(StreamingMessage obj)
@@ -86,8 +101,7 @@ public class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Status = StreamStatus.Error;
-            Console.WriteLine("Stream exception: ", ex.Message);
+            OnErrorOccurred(ex);
         }
     }
 
@@ -96,29 +110,23 @@ public class MainViewModel : ViewModelBase
         try
         {
             Status = StreamStatus.Stopping;
-            await _webSocketService.StopStreamAsync();
 
+            await _webSocketService.StopStreamAsync();
             await _webSocketService.DisconnectAsync();
 
             Status = StreamStatus.Disconnected;
         }
         catch (Exception ex)
         {
-            Status = StreamStatus.Error;
-            Debug.WriteLine("Stream exception: ", ex.Message);
+            OnErrorOccurred(ex);
         }
-    }
-
-    private void OnConnectionClosed()
-    {
-        Status = StreamStatus.LostConnection;
     }
 
     private void OnErrorOccurred(Exception ex)
     {
-        Status = StreamStatus.Error;
+        Status = StreamStatus.Disconnected;
         Debug.WriteLine("Stream exception: ", ex.Message);
-        
-        throw ex;
+
+        Manager.Error("Ошибка соединения", ex.Message);
     }
 }
