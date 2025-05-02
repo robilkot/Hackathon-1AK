@@ -51,7 +51,22 @@ public class StickerParametersViewModel : ViewModelBase
     public SizeViewModel StickerSize
     {
         get => _stickerSize;
-        set => this.RaiseAndSetIfChanged(ref _stickerSize, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _stickerSize, value);
+
+            StickerSize.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(SizeViewModel.Width))
+                {
+                    UpdateHeight();
+                }
+                else if (e.PropertyName == nameof(SizeViewModel.Height))
+                {
+                    UpdateWidth();
+                }
+            };
+        }
     }
 
     private double _rotation = 0;
@@ -81,18 +96,6 @@ public class StickerParametersViewModel : ViewModelBase
         var canApply = this.WhenAnyValue(x => x.Image).Select(image => image != null);
         ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParameters, canApply);
         FetchParametersCommand = ReactiveCommand.CreateFromTask(FetchParameters);
-
-        StickerSize.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(SizeViewModel.Width))
-            {
-                UpdateHeight();
-            }
-            else if (e.PropertyName == nameof(SizeViewModel.Height))
-            {
-                UpdateWidth();
-            }
-        };
     }
     
     public async Task InitializeAsync()

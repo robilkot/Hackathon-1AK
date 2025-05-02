@@ -123,6 +123,8 @@ async def stream_images_async():
 
 
 def start_processes(background_tasks: BackgroundTasks):
+    init_processes()
+
     for process in processes:
         if not process.is_alive():
             process.start()

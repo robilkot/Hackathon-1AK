@@ -161,7 +161,14 @@
 							VerticalContentAlignment="Center"
 							Value="{Binding Center.Y}"/>
 					</Grid>
-				
+
+					<Button
+						Grid.ColumnSpan="2"
+						HorizontalAlignment="Stretch"
+						HorizontalContentAlignment="Center"
+						Command="{Binding FetchParametersCommand}"
+						Content="Загрузить с сервера"/>
+					
 					<Button
 						Grid.ColumnSpan="2"
 						HorizontalAlignment="Stretch"
