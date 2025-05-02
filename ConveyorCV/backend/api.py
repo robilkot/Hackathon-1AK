@@ -91,6 +91,7 @@ def init_processes():
 
 init_processes()
 
+
 async def stream_images_async():
     logger.info(f"stream_images starting")
     last_time = datetime.datetime.now()
@@ -303,7 +304,90 @@ def get_example_html():
             <button id="nextPageBtn" disabled>Next</button>
         </div>
     </div>
-
+    <div class="parameter-section">
+    <h2>Sticker Parameters</h2>
+    <div id="parameterForm" class="parameter-form">
+        <div class="param-group">
+            <h3>Sticker Center</h3>
+            <div class="form-row">
+                <label>X (%): <input type="number" id="centerX" step="0.1" min="0" max="100"></label>
+                <label>Y (%): <input type="number" id="centerY" step="0.1" min="0" max="100"></label>
+            </div>
+        </div>
+        
+        <div class="param-group">
+            <h3>Acc Size</h3>
+            <div class="form-row">
+                <label>Width: <input type="number" id="accWidth" step="1"></label>
+                <label>Height: <input type="number" id="accHeight" step="1"></label>
+            </div>
+        </div>
+        
+        <div class="param-group">
+            <h3>Sticker Size</h3>
+            <div class="form-row">
+                <label>Width: <input type="number" id="stickerWidth" step="0.1"></label>
+                <label>Height: <input type="number" id="stickerHeight" step="0.1"></label>
+            </div>
+        </div>
+        
+        <div class="param-group">
+            <h3>Sticker Rotation</h3>
+            <div class="form-row">
+                <label>Angle (degrees): <input type="number" id="stickerRotation" step="0.1"></label>
+            </div>
+        </div>
+        
+        <div class="param-group">
+            <h3>Sticker Design</h3>
+            <div class="design-preview">
+                <img id="stickerDesign" src="" alt="No sticker design available">
+            </div>
+            <input type="file" id="stickerDesignUpload" accept="image/*">
+        </div>
+        
+        <div class="action-buttons">
+            <button id="loadParamsBtn">Load Current Parameters</button>
+            <button id="saveParamsBtn">Save Parameters</button>
+        </div>
+    </div>
+</div>
+<style>
+    /* Parameter form styling */
+    .parameter-form {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin-bottom: 20px;
+        background-color: #f9f9f9;
+    }
+    .param-group {
+        margin-bottom: 15px;
+    }
+    .form-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 10px;
+    }
+    .form-row label {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .design-preview {
+        margin: 10px 0;
+        border: 1px dashed #ccc;
+        padding: 5px;
+        text-align: center;
+    }
+    .design-preview img {
+        max-height: 150px;
+        max-width: 100%;
+    }
+    .action-buttons {
+        margin-top: 15px;
+    }
+</style>
+    
     <script>
         const host = window.location.host;
         let ws = null;
@@ -511,6 +595,90 @@ def get_example_html():
                 addEvent(`Error fetching logs: ${e.message}`);
             }
         }
+        document.getElementById('loadParamsBtn').addEventListener('click', loadParameters);
+    document.getElementById('saveParamsBtn').addEventListener('click', saveParameters);
+    document.getElementById('stickerDesignUpload').addEventListener('change', handleDesignUpload);
+
+    let currentDesignImage = null;
+    
+    async function loadParameters() {
+        try {
+            const response = await fetch('/sticker/parameters');
+            const params = await response.json();
+            
+            // Fill in form fields
+            document.getElementById('centerX').value = params.StickerCenter.X;
+            document.getElementById('centerY').value = params.StickerCenter.Y;
+            document.getElementById('accWidth').value = params.AccSize.Width;
+            document.getElementById('accHeight').value = params.AccSize.Height;
+            document.getElementById('stickerWidth').value = params.StickerSize.Width;
+            document.getElementById('stickerHeight').value = params.StickerSize.Height;
+            document.getElementById('stickerRotation').value = params.StickerRotation;
+            
+            // Display sticker design
+            if (params.StickerDesign) {
+                document.getElementById('stickerDesign').src = 'data:image/png;base64,' + params.StickerDesign;
+                currentDesignImage = params.StickerDesign;
+            }
+            
+            addEvent('Parameters loaded successfully');
+        } catch (e) {
+            console.error('Error loading parameters:', e);
+            addEvent(`Error loading parameters: ${e.message}`);
+        }
+    }
+    
+    function handleDesignUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            // Display the image
+            document.getElementById('stickerDesign').src = e.target.result;
+            // Extract the base64 data (remove the prefix)
+            currentDesignImage = e.target.result.split(',')[1];
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    async function saveParameters() {
+        try {
+            const params = {
+                StickerDesign: currentDesignImage,
+                StickerCenter: {
+                    X: parseFloat(document.getElementById('centerX').value),
+                    Y: parseFloat(document.getElementById('centerY').value)
+                },
+                AccSize: {
+                    Width: parseFloat(document.getElementById('accWidth').value),
+                    Height: parseFloat(document.getElementById('accHeight').value)
+                },
+                StickerSize: {
+                    Width: parseFloat(document.getElementById('stickerWidth').value),
+                    Height: parseFloat(document.getElementById('stickerHeight').value)
+                },
+                StickerRotation: parseFloat(document.getElementById('stickerRotation').value)
+            };
+            
+            const response = await fetch('/sticker/parameters', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(params)
+            });
+            
+            const result = await response.json();
+            addEvent(`Parameters saved: ${JSON.stringify(result)}`);
+        } catch (e) {
+            console.error('Error saving parameters:', e);
+            addEvent(`Error saving parameters: ${e.message}`);
+        }
+    }
+    
+    // Load parameters on page load
+    document.addEventListener('DOMContentLoaded', loadParameters);
     </script>
 </body>
 </html>
