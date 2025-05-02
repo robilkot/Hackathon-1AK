@@ -1,4 +1,5 @@
 import datetime
+import logging
 from threading import Timer, Lock
 
 import cv2
@@ -6,6 +7,8 @@ from numpy import median
 
 from algorithms.InvariantTM import invariant_match_template
 from model.model import StickerValidationParams, DetectionContext, StickerValidationResult
+
+logger = logging.getLogger(__name__)
 
 class StickerValidator:
     def __init__(self, params: StickerValidationParams = None):
@@ -39,6 +42,7 @@ class StickerValidator:
 
         img_bgr = context.processed_image
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        img_height, img_width = img_rgb.shape[:2]
 
         template_bgr = self.__params.sticker_design
         template_rgb = cv2.cvtColor(template_bgr, cv2.COLOR_BGR2RGB)
@@ -52,37 +56,81 @@ class StickerValidator:
 
         # todo различать случай когда наклейка есть, но неверный дизайн
         sticker_present = len(points_list) > 0
+        sticker_matches_design = sticker_present
 
         context.validation_results = StickerValidationResult(
             sticker_present=sticker_present,
-            sticker_matches_design=sticker_present,
-            sticker_image = context.processed_image,
+            sticker_matches_design=sticker_matches_design,
+            sticker_image=context.processed_image,
             seq_number=context.seq_number,
             detected_at=context.detected_at
         )
-
 
         if sticker_present and points_list[0]:
             rotation = points_list[0][1]
             scale = points_list[0][2]
             confidence = points_list[0][3]
 
-            # todo get from parameters?
-            sticker_size = template_rgb.shape[1] * scale / 100, template_rgb.shape[0] * scale / 100
+            sticker_size = (template_rgb.shape[1] * scale / 100, template_rgb.shape[0] * scale / 100)
             x, y = points_list[0][0]
             x, y = x + sticker_size[0] / 2, y + sticker_size[1] / 2
             position_tuple = (x, y)
+            size_tuple = (float(sticker_size[0]), float(sticker_size[1]))
 
-            sticker_width = sticker_size[0]
-            sticker_height = sticker_size[1]
-            size_tuple = (float(sticker_width), float(sticker_height))
+            context.validation_results.sticker_position = position_tuple
+            context.validation_results.sticker_rotation = float(-rotation)
+            context.validation_results.sticker_size = size_tuple
 
-            context.validation_results.sticker_position=position_tuple
-            context.validation_results.sticker_rotation=float(-rotation)
-            context.validation_results.sticker_size=size_tuple
+            #todo add it to settings
+            POSITION_TOLERANCE_PERCENT = 10.0  # % of accumulator size
+            ROTATION_TOLERANCE_DEGREES = 5.0  # degrees
+            SIZE_RATIO_TOLERANCE = 0.15  # % difference in expected ratio
+
+            expected_center_x = img_width * self.__params.sticker_center[0] / 100
+            expected_center_y = img_height * self.__params.sticker_center[1] / 100
+
+            position_tolerance_x = img_width * POSITION_TOLERANCE_PERCENT / 100
+            position_tolerance_y = img_height * POSITION_TOLERANCE_PERCENT / 100
+
+            logger.info(f"POSITION CALC - seq#{context.seq_number} "
+                        f"expected_center_x:{expected_center_x:.1f} (img_width:{img_width}*center:{self.__params.sticker_center[0]:.1f}/100) "
+                        f"expected_center_y:{expected_center_y:.1f} (img_height:{img_height}*center:{self.__params.sticker_center[1]:.1f}/100) "
+                        f"actual_x:{x:.1f} actual_y:{y:.1f} "
+                        f"tolerance_x:{position_tolerance_x:.1f} tolerance_y:{position_tolerance_y:.1f}")
+
+            position_valid = (
+                    abs(x - expected_center_x) <= position_tolerance_x and
+                    abs(y - expected_center_y) <= position_tolerance_y
+            )
+
+            rotation_valid = abs((-rotation) - self.__params.sticker_rotation) <= ROTATION_TOLERANCE_DEGREES
+
+            #todo calculate one time
+            expected_width_ratio = self.__params.sticker_size[0] / self.__params.acc_size[0]
+            expected_height_ratio = self.__params.sticker_size[1] / self.__params.acc_size[1]
+
+            actual_width_ratio = sticker_size[0] / img_width
+            actual_height_ratio = sticker_size[1] / img_height
+
+            logger.info(f"RATIO CALC - seq#{context.seq_number} "
+                        f"expected_width_ratio:{expected_width_ratio:.4f} (sticker:{self.__params.sticker_size[0]:.1f}/acc:{self.__params.acc_size[0]:.1f}) "
+                        f"expected_height_ratio:{expected_height_ratio:.4f} (sticker:{self.__params.sticker_size[1]:.1f}/acc:{self.__params.acc_size[1]:.1f}) "
+                        f"actual_width_ratio:{actual_width_ratio:.4f} (detected:{sticker_size[0]:.1f}/img:{img_width:.1f}) "
+                        f"actual_height_ratio:{actual_height_ratio:.4f} (detected:{sticker_size[1]:.1f}/img:{img_height:.1f})")
+
+            size_valid = (
+                    abs(actual_width_ratio - expected_width_ratio) <= SIZE_RATIO_TOLERANCE and
+                    abs(actual_height_ratio - expected_height_ratio) <= SIZE_RATIO_TOLERANCE
+            )
+
+            sticker_matches_design = position_valid and rotation_valid and size_valid
+            context.validation_results.sticker_matches_design = sticker_matches_design
+
+            logger.info(f"VALIDATION - seq#{context.seq_number} position_valid:{position_valid} "
+                        f"rotation_valid:{rotation_valid} size_valid:{size_valid} "
+                        f"overall:{sticker_matches_design}")
 
         self.__last_processed_acc_detections.append(context)
-
         return context
 
     # Get result if present and clear it
