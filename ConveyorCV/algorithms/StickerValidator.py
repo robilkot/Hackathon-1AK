@@ -1,6 +1,5 @@
-import datetime
 import logging
-from threading import Timer, Lock
+from queue import Queue
 
 import cv2
 from numpy import median
@@ -9,6 +8,8 @@ from algorithms.InvariantTM import invariant_match_template
 from model.model import StickerValidationParams, DetectionContext, StickerValidationResult
 
 logger = logging.getLogger(__name__)
+combined_validation_results = Queue()
+
 
 class StickerValidator:
     def __init__(self, params: StickerValidationParams = None):
@@ -18,11 +19,8 @@ class StickerValidator:
         else:
             self.__params = params
 
-        self.__combined_validation_result: StickerValidationResult | None = None
         self.__last_processed_acc_number: int = 1
         self.__last_processed_acc_detections: list[DetectionContext] = []
-        self.__validation_timer: Timer | None = None
-        self.__validation_max_interval: float = 1  # Maximum interval in seconds before performing combined validation
 
     def set_parameters(self, sticker_params: StickerValidationParams):
         self.__params = sticker_params
@@ -31,13 +29,8 @@ class StickerValidator:
         return self.__params
 
     def validate(self, context: DetectionContext) -> DetectionContext:
-        if self.__validation_timer is not None:
-            self.__validation_timer.cancel()
-        self.__validation_timer = Timer(self.__validation_max_interval, self.__process_combined_validation)
-        self.__validation_timer.start()
-
         if self.__last_processed_acc_number != context.seq_number:
-            self.__process_combined_validation()
+            self.process_combined_validation()
             self.__last_processed_acc_number = context.seq_number
 
         img_bgr = context.processed_image
@@ -133,17 +126,7 @@ class StickerValidator:
         self.__last_processed_acc_detections.append(context)
         return context
 
-    # Get result if present and clear it
-    def get_combined_validation_result(self) -> StickerValidationResult | None:
-        result = self.__combined_validation_result
-        self.__combined_validation_result = None
-        return result
-
-    def __process_combined_validation(self):
-        if self.__validation_timer is not None:
-            self.__validation_timer.cancel()
-        self.__validation_timer = None
-
+    def process_combined_validation(self):
         results = list([context.validation_results for context in self.__last_processed_acc_detections])
         if len(results) == 0:
             return
@@ -180,6 +163,5 @@ class StickerValidator:
             detected_at=results[0].detected_at
         )
 
+        combined_validation_results.put(result)
         self.__last_processed_acc_detections = []
-        self.__combined_validation_result = result
-        self.__last_processed_combined_acc_number = self.__last_processed_acc_number

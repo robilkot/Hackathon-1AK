@@ -11,7 +11,7 @@ import cv2
 from Camera.CameraInterface import CameraInterface
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
-from algorithms.StickerValidator import StickerValidator
+from algorithms.StickerValidator import StickerValidator, combined_validation_results
 from model.model import DetectionContext, StreamingMessage, ImageStreamingMessageContent, \
     ValidationStreamingMessageContent, StreamingMessageType, StickerValidationParams
 from utils.downscale import downscale
@@ -128,11 +128,7 @@ class StickerValidatorProcess(Process):
 
     def set_validator_parameters(self, params: StickerValidationParams):
         logger.info(f"Set validator parameters: {params}")
-        if params.sticker_design is not None:
-            logger.info(f"Sticker design image shape: {params.sticker_design.shape}")
-        else:
-            logger.info("Warning: Sticker design image is None")
-        self.__params_queue.put(params)
+        self.validator.set_parameters(params)
 
     def get_validator_parameters(self) -> StickerValidationParams:
         return self.validator.get_parameters()
@@ -143,26 +139,20 @@ class StickerValidatorProcess(Process):
         while True:
             try:
                 try:
-                    new_params = self.__params_queue.get_nowait()
-                    logger.info(f"Updating validator parameters inside process")
-                    self.validator.set_parameters(new_params)
-                except Empty:
-                    pass
-
-                try:
                     context = self.__input_queue.get(timeout=1)
 
                     if context is None:
                         raise InterruptedError
                     _ = self.validator.validate(context)
                 except Empty:
-                    pass
+                    self.validator.process_combined_validation()
 
-                combined_result = self.validator.get_combined_validation_result()
-
-                if combined_result is not None:
+                try:
+                    combined_result = combined_validation_results.get_nowait()
                     self.__results_queue.put_nowait(combined_result)
                     self.__ws_queue.put_nowait(StreamingMessage(StreamingMessageType.VALIDATION, ValidationStreamingMessageContent(combined_result)))
+                except Empty:
+                    pass
             except (KeyboardInterrupt, InterruptedError):
                 logger.info(f"{self.name} exiting")
                 return
