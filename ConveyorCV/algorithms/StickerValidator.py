@@ -71,7 +71,7 @@ class StickerValidator:
             size_tuple = (float(sticker_size[0]), float(sticker_size[1]))
 
             context.validation_results.sticker_position = position_tuple
-            context.validation_results.sticker_rotation = float(-rotation)
+            context.validation_results.sticker_rotation = float(rotation)
             context.validation_results.sticker_size = size_tuple
 
             #todo add it to settings
@@ -79,24 +79,23 @@ class StickerValidator:
             ROTATION_TOLERANCE_DEGREES = 5.0  # degrees
             SIZE_RATIO_TOLERANCE = 0.15  # % difference in expected ratio
 
-            expected_center_x = self.__params.sticker_center[0]
-            expected_center_y = self.__params.sticker_center[1]
+            expected_center_x = self.__params.sticker_center[0] / self.__params.acc_size[0] * img_width
+            expected_center_y = self.__params.sticker_center[1] / self.__params.acc_size[1] * img_height
 
             position_tolerance_x = img_width * POSITION_TOLERANCE_PERCENT / 100
             position_tolerance_y = img_height * POSITION_TOLERANCE_PERCENT / 100
 
-            logger.info(f"POSITION CALC - seq#{context.seq_number} "
-                        f"expected_center_x:{expected_center_x:.1f} (direct pixel coordinate) "
-                        f"expected_center_y:{expected_center_y:.1f} (direct pixel coordinate) "
-                        f"actual_x:{x:.1f} actual_y:{y:.1f} "
-                        f"tolerance_x:{position_tolerance_x:.1f} tolerance_y:{position_tolerance_y:.1f}")
+            logger.info(f"POSITION "
+                        f"expected_center: ({expected_center_x:.1f}, {expected_center_y:.1f}) "
+                        f"actual: ({x:.1f}, {y:.1f}) "
+                        f"tolerance: ({position_tolerance_x:.1f}, {position_tolerance_y:.1f}) ")
 
             position_valid = (
                     abs(x - expected_center_x) <= position_tolerance_x and
                     abs(y - expected_center_y) <= position_tolerance_y
             )
 
-            rotation_valid = abs((-rotation) - self.__params.sticker_rotation) <= ROTATION_TOLERANCE_DEGREES
+            rotation_valid = abs(rotation - self.__params.sticker_rotation) <= ROTATION_TOLERANCE_DEGREES
 
             #todo calculate one time
             expected_width_ratio = self.__params.sticker_size[0] / self.__params.acc_size[0]
@@ -105,11 +104,9 @@ class StickerValidator:
             actual_width_ratio = sticker_size[0] / img_width
             actual_height_ratio = sticker_size[1] / img_height
 
-            logger.info(f"RATIO CALC - seq#{context.seq_number} "
-                        f"expected_width_ratio:{expected_width_ratio:.4f} (sticker:{self.__params.sticker_size[0]:.1f}/acc:{self.__params.acc_size[0]:.1f}) "
-                        f"expected_height_ratio:{expected_height_ratio:.4f} (sticker:{self.__params.sticker_size[1]:.1f}/acc:{self.__params.acc_size[1]:.1f}) "
-                        f"actual_width_ratio:{actual_width_ratio:.4f} (detected:{sticker_size[0]:.1f}/img:{img_width:.1f}) "
-                        f"actual_height_ratio:{actual_height_ratio:.4f} (detected:{sticker_size[1]:.1f}/img:{img_height:.1f})")
+            logger.info(f"SIZE "
+                        f"expected_ratio: ({expected_width_ratio:.4f} ({self.__params.sticker_size[0]:.1f}/{self.__params.acc_size[0]:.1f}), {expected_height_ratio:.4f} ({self.__params.sticker_size[1]:.1f}/{self.__params.acc_size[1]:.1f})) "
+                        f"actual_ratio: ({actual_width_ratio:.4f} ({sticker_size[0]:.1f}/{img_width:.1f}) ,{actual_height_ratio:.4f} ({sticker_size[1]:.1f}/{img_height:.1f})) ")
 
             size_valid = (
                     abs(actual_width_ratio - expected_width_ratio) <= SIZE_RATIO_TOLERANCE and
@@ -119,9 +116,9 @@ class StickerValidator:
             sticker_matches_design = position_valid and rotation_valid and size_valid
             context.validation_results.sticker_matches_design = sticker_matches_design
 
-            logger.info(f"VALIDATION - seq#{context.seq_number} position_valid:{position_valid} "
-                        f"rotation_valid:{rotation_valid} size_valid:{size_valid} "
-                        f"overall:{sticker_matches_design}")
+            logger.info(f"TOTAL - seq#{context.seq_number} position_valid: {position_valid} "
+                        f"rotation_valid: {rotation_valid} size_valid: {size_valid} "
+                        f"total: {sticker_matches_design}")
 
         self.__last_processed_acc_detections.append(context)
         return context
