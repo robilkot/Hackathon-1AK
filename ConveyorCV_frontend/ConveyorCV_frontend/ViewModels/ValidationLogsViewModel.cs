@@ -115,11 +115,11 @@ namespace ConveyorCV_frontend.ViewModels
             LastPageCommand = ReactiveCommand.CreateFromTask(LastPage);
             DeleteLogCommand = ReactiveCommand.CreateFromTask<int>(DeleteLog);
 
-            StartDate = DateTime.Now - TimeSpan.FromDays(1);
+            StartDate = DateTime.Now - TimeSpan.FromHours(12);
             StartTime = StartDate.TimeOfDay;
 
             EndDate = DateTime.Now;
-            EndTime = EndDate.TimeOfDay + TimeSpan.FromHours(1);
+            EndTime = EndDate.TimeOfDay + TimeSpan.FromHours(12);
 
             _ = LoadLogs();
         }

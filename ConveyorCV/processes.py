@@ -82,7 +82,6 @@ class ShapeDetectorProcess(Process):
             except Exception as e:
                 logger.error(f"{self.name} exception: ", e)
 
-
 # BW masks of prop -> aligned and cropped images
 class ShapeProcessorProcess(Process):
     def __init__(self, mask_queue: Queue, image_queue: Queue, websocket_queue: Queue, shape_processor: ShapeProcessor):

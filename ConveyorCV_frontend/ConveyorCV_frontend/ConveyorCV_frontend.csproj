@@ -22,6 +22,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <AvaloniaXaml Update="Views\ValidationLogsWindow.axaml">
+      <SubType>Designer</SubType>
+    </AvaloniaXaml>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Views\ValidationLogsWindow.axaml.cs">
+      <SubType>Code</SubType>
+      <DependentUpon>ValidationLogsWindow.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\StickerValidationResultView.axaml.cs">
       <DependentUpon>StickerValidationResultView.axaml</DependentUpon>
     </Compile>

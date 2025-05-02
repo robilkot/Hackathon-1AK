@@ -60,4 +60,5 @@ if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
     port = int(os.getenv("API_PORT", "8000"))
     logger.info(f"API documentation available at http://localhost:{port}/docs")
+    logger.info(f"Example available at http://localhost:{port}/example")
     uvicorn.run("api_main:app", host="127.0.0.1", port=port, reload=False)
