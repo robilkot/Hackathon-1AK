@@ -124,7 +124,8 @@ class StickerValidator:
         return context
 
     def process_combined_validation(self):
-        results = list([context.validation_results for context in self.__last_processed_acc_detections])
+        results = list([ctx.validation_results for ctx in self.__last_processed_acc_detections
+                        if ctx.seq_number == self.__last_processed_acc_number])
         if len(results) == 0:
             return
 

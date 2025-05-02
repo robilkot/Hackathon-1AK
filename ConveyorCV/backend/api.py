@@ -19,7 +19,7 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
-from backend.db import paginate_validation_logs, delete_validation_log_by_id
+from backend.db import paginate_validation_logs, delete_validation_log_by_id, delete_all_validation_logs
 from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings
@@ -212,7 +212,7 @@ def delete_validation_log(log_id: int):
 
 
 @app.delete("/validation/logs")
-def delete_all_validation_logs():
+def delete_all_validation_logs_endpoint():
     """Delete all validation logs from the database"""
     return delete_all_validation_logs()
 
