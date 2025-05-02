@@ -195,7 +195,7 @@
 									</TextBlock>
                                     <TextBlock Grid.Column="7"
                                                IsVisible="{Binding StickerPresent}"
-                                               Text="{Binding StickerRotation, StringFormat='°{0:F1}'}"
+                                               Text="{Binding StickerRotation, StringFormat='{0:F1}°'}"
                                                Margin="0,0,15,0" HorizontalAlignment="Center" />
                                     <Button Grid.Column="9"
                                             Command="{Binding DataContext.DeleteLogCommand, RelativeSource={RelativeSource AncestorType=ItemsRepeater}}"

@@ -11,6 +11,7 @@ from typing import Optional
 import cv2
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
+from starlette.middleware.cors import CORSMiddleware
 
 from Camera.CameraInterface import CameraInterface
 from Camera.IPCamera import IPCamera
@@ -37,8 +38,21 @@ async def lifespan(app: FastAPI):
     # shutdown
     # ...
 
-
 app = FastAPI(title="Conveyor CV API", lifespan=lifespan)
+
+# Configure CORS middleware
+origins = [
+    "https://localhost:7169",  # WASM app origin
+    "http://localhost:5235",  # WASM app origin
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 logger = logging.getLogger(__name__)
 

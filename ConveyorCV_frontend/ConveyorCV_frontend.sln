@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConveyorCV_frontend", "Conv
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConveyorCV_frontend.Desktop", "ConveyorCV_frontend.Desktop\ConveyorCV_frontend.Desktop.csproj", "{16A48A5C-EA1A-48EF-895B-54EDDFB8DB04}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConveyorCV_frontend.Browser", "ConveyorCV_frontend.Browser\ConveyorCV_frontend.Browser.csproj", "{B84C99DC-D0C7-488A-BCEC-AF443E91F565}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{16A48A5C-EA1A-48EF-895B-54EDDFB8DB04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{16A48A5C-EA1A-48EF-895B-54EDDFB8DB04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{16A48A5C-EA1A-48EF-895B-54EDDFB8DB04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B84C99DC-D0C7-488A-BCEC-AF443E91F565}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B84C99DC-D0C7-488A-BCEC-AF443E91F565}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B84C99DC-D0C7-488A-BCEC-AF443E91F565}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B84C99DC-D0C7-488A-BCEC-AF443E91F565}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
