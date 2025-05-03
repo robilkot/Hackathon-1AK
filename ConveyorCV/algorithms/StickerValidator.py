@@ -85,10 +85,11 @@ class StickerValidator:
             position_tolerance_x = img_width * POSITION_TOLERANCE_PERCENT / 100
             position_tolerance_y = img_height * POSITION_TOLERANCE_PERCENT / 100
 
-            logger.info(f"POSITION "
-                        f"expected_center: ({expected_center_x:.1f}, {expected_center_y:.1f}) "
-                        f"actual: ({x:.1f}, {y:.1f}) "
-                        f"tolerance: ({position_tolerance_x:.1f}, {position_tolerance_y:.1f}) ")
+            logger.info(f"pos "
+                        f"exp_center: ({expected_center_x:.1f}, {expected_center_y:.1f}) "
+                        f"act_center: ({x:.1f}, {y:.1f}) "
+                        f"tolerance: ({position_tolerance_x:.1f}, {position_tolerance_y:.1f}) "
+                        f"rotation: {rotation:.1f} ")
 
             position_valid = (
                     abs(x - expected_center_x) <= position_tolerance_x and
@@ -104,9 +105,9 @@ class StickerValidator:
             actual_width_ratio = sticker_size[0] / img_width
             actual_height_ratio = sticker_size[1] / img_height
 
-            logger.info(f"SIZE "
-                        f"expected_ratio: ({expected_width_ratio:.4f} ({self.__params.sticker_size[0]:.1f}/{self.__params.acc_size[0]:.1f}), {expected_height_ratio:.4f} ({self.__params.sticker_size[1]:.1f}/{self.__params.acc_size[1]:.1f})) "
-                        f"actual_ratio: ({actual_width_ratio:.4f} ({sticker_size[0]:.1f}/{img_width:.1f}) ,{actual_height_ratio:.4f} ({sticker_size[1]:.1f}/{img_height:.1f})) ")
+            logger.info(f"size "
+                        f"exp_ratio: ({expected_width_ratio:.4f} ({self.__params.sticker_size[0]:.1f}/{self.__params.acc_size[0]:.1f}), {expected_height_ratio:.4f} ({self.__params.sticker_size[1]:.1f}/{self.__params.acc_size[1]:.1f})) "
+                        f"act_ratio: ({actual_width_ratio:.4f} ({sticker_size[0]:.1f}/{img_width:.1f}) ,{actual_height_ratio:.4f} ({sticker_size[1]:.1f}/{img_height:.1f})) ")
 
             size_valid = (
                     abs(actual_width_ratio - expected_width_ratio) <= SIZE_RATIO_TOLERANCE and
@@ -116,9 +117,11 @@ class StickerValidator:
             sticker_matches_design = position_valid and rotation_valid and size_valid
             context.validation_results.sticker_matches_design = sticker_matches_design
 
-            logger.info(f"TOTAL - seq#{context.seq_number} position_valid: {position_valid} "
-                        f"rotation_valid: {rotation_valid} size_valid: {size_valid} "
-                        f"total: {sticker_matches_design}")
+            logger.info(f"SEQ #{context.seq_number} "
+                        f"total: {sticker_matches_design} "
+                        f"position: {position_valid} "
+                        f"rotation: {rotation_valid} "
+                        f"size: {size_valid} ")
 
         self.__last_processed_acc_detections.append(context)
         return context
@@ -135,6 +138,11 @@ class StickerValidator:
 
         present_values = [r.sticker_present for r in current_results]
         sticker_present = Counter(present_values).most_common(1)[0][0] if present_values else False
+
+        for i, test in enumerate(results):
+            assert test.seq_number == self.__last_processed_acc_number, 'Wrong seq_number in combined validation!'
+            # logger.info(f'{test.seq_number}')
+            cv2.imwrite(f'data/{test.seq_number}_{i}.jpg', test.sticker_image)
 
         sticker_matches_design = None
         median_position = None

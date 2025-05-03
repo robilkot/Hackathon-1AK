@@ -35,5 +35,10 @@ class WebSocketManager:
     async def broadcast_message(self, message: StreamingMessage):
         self.latest_message = message
 
-        for ws in self.active_connections:
-            await self.__send_message(ws, message)
+        try:
+            for ws in self.active_connections:
+                await self.__send_message(ws, message)
+        except RuntimeError as re:
+            # todo shit
+            if str(re) == 'Cannot call "send" once a close message has been sent.':
+                raise InterruptedError
