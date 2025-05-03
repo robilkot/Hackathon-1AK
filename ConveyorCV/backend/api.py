@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import logging
+import os
 import queue
 from contextlib import asynccontextmanager
 from multiprocessing import Queue, Process
@@ -102,48 +103,96 @@ def init_processes():
 
 
 def restart_processes(background_tasks: BackgroundTasks):
-    """Stop all running processes except ShapeDetectorProcess and restart them with new settings"""
+    """Stop all processes and restart them with new settings while preserving queue content"""
     global settings, camera, detector, processor, validator, processes
+    global shape_queue, processed_shape_queue, results_queue, websocket_queue, exit_queue
 
-    shape_detector_process = None
+    logger.info("Starting complete system restart - saving queue content and terminating all processes")
 
-    # Store reference to existing ShapeDetectorProcess
+    # Save queue content
+    saved_queue_content = {
+        'shape_queue': [],
+        'processed_shape_queue': [],
+        'results_queue': [],
+        'websocket_queue': []
+    }
+
+    # Extract items from queues
+    for name, q in [
+        ('shape_queue', shape_queue),
+        ('processed_shape_queue', processed_shape_queue),
+        ('results_queue', results_queue),
+        ('websocket_queue', websocket_queue)
+    ]:
+        while not q.empty():
+            try:
+                saved_queue_content[name].append(q.get_nowait())
+            except:
+                pass
+        logger.info(f"Saved {len(saved_queue_content[name])} items from {name}")
+
+    # Terminate all processes
     for process in processes:
-        if isinstance(process, ShapeDetectorProcess):
-            shape_detector_process = process
-            continue  # Skip termination for ShapeDetectorProcess
-
         if process.is_alive():
+            logger.info(f"Terminating process: {process.name} (pid: {process.pid})")
             process.terminate()
             process.join(timeout=2)
+            logger.info(f"Process {process.name} terminated")
+        else:
+            logger.info(f"Process {process.name} was not running")
 
     settings = get_settings()
+    logger.info("Settings reloaded, recreating all components")
 
-    # Only reinitialize components that need updating
+    # Reinitialize components
     if settings.camera_type == "video":
         camera = VideoFileCamera(settings.camera.video_path)
+        logger.info(f"Created VideoFileCamera: {settings.camera.video_path}")
     else:
         camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
+        logger.info(f"Created IPCamera: {settings.camera.phone_ip}:{settings.camera.port}")
 
+    detector = ShapeDetector()
     processor = ShapeProcessor(settings)
     validator = StickerValidator()
+    logger.info("Created new components")
 
-    # Don't recreate ShapeDetectorProcess, only other processes
+    # Create all queues and processes
+    exit_queue = Queue()
+    shape_queue = Queue()
+    processed_shape_queue = Queue()
+    results_queue = Queue()
+    websocket_queue = Queue()
+
+    # Create all processes
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 20)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
                                                         validator)
     validation_logger_process = ValidationResultsLogger(results_queue)
+    logger.info("Created new process instances")
 
-    # Update processes list, keeping the existing ShapeDetectorProcess
     processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
 
-    # Start only non-detector processes
+    # Restore queue content
+    for name, q in [
+        ('shape_queue', shape_queue),
+        ('processed_shape_queue', processed_shape_queue),
+        ('results_queue', results_queue),
+        ('websocket_queue', websocket_queue)
+    ]:
+        for item in saved_queue_content[name]:
+            q.put(item)
+        logger.info(f"Restored {len(saved_queue_content[name])} items to {name}")
+
+    # Start all processes
     for process in processes:
-        if not isinstance(process, ShapeDetectorProcess) and not process.is_alive():
-            process.start()
+        logger.info(f"Starting process: {process.name}")
+        process.start()
+        logger.info(f"Process {process.name} started with pid: {process.pid}")
 
-    return {"status": "success", "message": "Processes restarted with updated settings (shape detector kept running)"}
-
+    logger.info("System restart completed")
+    return {"status": "success", "message": "All processes restarted with updated settings and preserved queue data"}
 
 init_processes()
 
