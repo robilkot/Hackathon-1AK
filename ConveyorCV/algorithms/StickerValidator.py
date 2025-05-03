@@ -13,17 +13,22 @@ combined_validation_results = Queue()
 
 class StickerValidator:
     def __init__(self, params: StickerValidationParams = None):
-        if params is None:
-            from utils.param_persistence import get_sticker_parameters
-            self.__params = get_sticker_parameters()
-        else:
-            self.__params = params
-
         self.__last_processed_acc_number: int = 1
         self.__last_processed_acc_detections: list[DetectionContext] = []
+        self.__expected_ratio_w: float = 0
+        self.__expected_ratio_h: float = 0
+        self.__params: StickerValidationParams | None = None
+
+        if params is None:
+            from utils.param_persistence import get_sticker_parameters
+            params = get_sticker_parameters()
+
+        self.set_parameters(params)
 
     def set_parameters(self, sticker_params: StickerValidationParams):
         self.__params = sticker_params
+        self.__expected_ratio_w = self.__params.sticker_size[0] / self.__params.acc_size[0]
+        self.__expected_ratio_h = self.__params.sticker_size[1] / self.__params.acc_size[1]
 
     def get_parameters(self) -> StickerValidationParams:
         return self.__params
@@ -85,12 +90,6 @@ class StickerValidator:
             position_tolerance_x = img_width * POSITION_TOLERANCE_PERCENT / 100
             position_tolerance_y = img_height * POSITION_TOLERANCE_PERCENT / 100
 
-            logger.info(f"pos "
-                        f"exp_center: ({expected_center_x:.1f}, {expected_center_y:.1f}) "
-                        f"act_center: ({x:.1f}, {y:.1f}) "
-                        f"tolerance: ({position_tolerance_x:.1f}, {position_tolerance_y:.1f}) "
-                        f"rotation: {rotation:.1f} ")
-
             position_valid = (
                     abs(x - expected_center_x) <= position_tolerance_x and
                     abs(y - expected_center_y) <= position_tolerance_y
@@ -98,30 +97,26 @@ class StickerValidator:
 
             rotation_valid = abs(rotation - self.__params.sticker_rotation) <= ROTATION_TOLERANCE_DEGREES
 
-            #todo calculate one time
-            expected_width_ratio = self.__params.sticker_size[0] / self.__params.acc_size[0]
-            expected_height_ratio = self.__params.sticker_size[1] / self.__params.acc_size[1]
-
-            actual_width_ratio = sticker_size[0] / img_width
-            actual_height_ratio = sticker_size[1] / img_height
-
-            logger.info(f"size "
-                        f"exp_ratio: ({expected_width_ratio:.4f} ({self.__params.sticker_size[0]:.1f}/{self.__params.acc_size[0]:.1f}), {expected_height_ratio:.4f} ({self.__params.sticker_size[1]:.1f}/{self.__params.acc_size[1]:.1f})) "
-                        f"act_ratio: ({actual_width_ratio:.4f} ({sticker_size[0]:.1f}/{img_width:.1f}) ,{actual_height_ratio:.4f} ({sticker_size[1]:.1f}/{img_height:.1f})) ")
+            actual_ratio_w = sticker_size[0] / img_width
+            actual_ratio_h = sticker_size[1] / img_height
 
             size_valid = (
-                    abs(actual_width_ratio - expected_width_ratio) <= SIZE_RATIO_TOLERANCE and
-                    abs(actual_height_ratio - expected_height_ratio) <= SIZE_RATIO_TOLERANCE
+                    abs(actual_ratio_w - self.__expected_ratio_w) <= SIZE_RATIO_TOLERANCE and
+                    abs(actual_ratio_h - self.__expected_ratio_h) <= SIZE_RATIO_TOLERANCE
             )
 
             sticker_matches_design = position_valid and rotation_valid and size_valid
             context.validation_results.sticker_matches_design = sticker_matches_design
 
-            logger.info(f"SEQ #{context.seq_number} "
-                        f"total: {sticker_matches_design} "
-                        f"position: {position_valid} "
-                        f"rotation: {rotation_valid} "
-                        f"size: {size_valid} ")
+            logger.info(f"SEQ {context.seq_number} "
+                        f"total: {'OK' if sticker_matches_design else 'ERROR'} "
+                        f"pos: {'OK' if position_valid else 'ERROR'} "
+                        f"rot: {'OK' if rotation_valid else 'ERROR'} "
+                        f"siz: {'OK' if size_valid else 'ERROR'} "
+                        f"center: {x:.1f}/{expected_center_x:.1f}, {y:.1f}/{expected_center_y:.1f} "
+                        f"(tolerance: {position_tolerance_x:.1f}, {position_tolerance_y:.1f}) "
+                        f"rot: {rotation:.1f} "
+                        f"asp: {actual_ratio_w:.2f}/{self.__expected_ratio_w:.2f}, {actual_ratio_h:.2f}/{self.__expected_ratio_h:.2f} ")
 
         self.__last_processed_acc_detections.append(context)
         return context
