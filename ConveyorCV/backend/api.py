@@ -18,6 +18,7 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
+from backend.context_manager import ContextManager
 from backend.db import paginate_validation_logs, delete_validation_log_by_id, delete_all_validation_logs
 from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
@@ -58,6 +59,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 manager = WebSocketManager()
+context_manager = ContextManager()
 
 camera: CameraInterface
 if settings.camera_type == "video":
@@ -106,8 +108,15 @@ def restart_processes(background_tasks: BackgroundTasks):
     """Stop all processes and restart them with new settings while preserving queue content"""
     global settings, camera, detector, processor, validator, processes
     global shape_queue, processed_shape_queue, results_queue, websocket_queue, exit_queue
+    global shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process
     start_time = time.time()
     logger.info("Starting complete system restart - saving queue content and terminating all processes")
+
+    context_manager.save_contexts(
+        shape_detector_process if 'shape_detector_process' in globals() else None,
+        shape_processor_process if 'shape_processor_process' in globals() else None,
+        sticker_validator_process if 'sticker_validator_process' in globals() else None
+    )
 
     saved_queue_content = {
         'shape_queue': [],
@@ -170,6 +179,9 @@ def restart_processes(background_tasks: BackgroundTasks):
 
     processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
 
+    context_manager.restore_contexts(shape_detector_process, shape_processor_process, sticker_validator_process)
+    logger.info("Restored process contexts")
+    
     for name, q in [
         ('shape_queue', shape_queue),
         ('processed_shape_queue', processed_shape_queue),

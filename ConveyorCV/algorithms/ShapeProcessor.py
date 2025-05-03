@@ -9,9 +9,9 @@ from utils.env import *
 
 
 class ShapeProcessor:
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, initial_counter=0):
         self.settings = settings or get_settings()
-        self.objects_processed = 0
+        self.objects_processed = initial_counter
         self.last_contour_center_x = 0
         self.last_detected_at = datetime.now()
 
