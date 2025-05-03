@@ -1,6 +1,6 @@
 import logging
 from queue import Queue
-
+from collections import Counter
 import cv2
 from numpy import median
 
@@ -127,46 +127,72 @@ class StickerValidator:
         return context
 
     def process_combined_validation(self):
-        results = list([ctx.validation_results for ctx in self.__last_processed_acc_detections
-                        if ctx.seq_number == self.__last_processed_acc_number])
-        if len(results) == 0:
+        if not self.__last_processed_acc_detections:
             return
+
+        current_results = [ctx.validation_results for ctx in self.__last_processed_acc_detections
+                           if ctx and ctx.validation_results and ctx.seq_number == self.__last_processed_acc_number]
+
+        if not current_results:
+            return
+
+        present_values = [r.sticker_present for r in current_results]
+        sticker_present = Counter(present_values).most_common(1)[0][0] if present_values else False
 
         for i, test in enumerate(results):
             assert test.seq_number == self.__last_processed_acc_number, 'Wrong seq_number in combined validation!'
             # logger.info(f'{test.seq_number}')
             cv2.imwrite(f'data/{test.seq_number}_{i}.jpg', test.sticker_image)
 
-        # Get most common value for sticker_present
-        sticker_present = max(set(r.sticker_present for r in results), key=list(results).count)
-
-        # Get median values for optional numeric fields
-        positions = list([r.sticker_position for r in results if r.sticker_position is not None])
-        sizes = list([r.sticker_size for r in results if r.sticker_size is not None])
-        rotations = list([r.sticker_rotation for r in results if r.sticker_rotation is not None])
+        sticker_matches_design = None
+        median_position = None
+        median_size = None
+        median_rotation = None
+        best_image = None
 
         if sticker_present:
-            median_position = tuple(median(x) for x in zip(*positions)) if positions else None
-            median_size = tuple(median(x) for x in zip(*sizes)) if sizes else None
-            median_rotation = median(rotations) if rotations else None
-        else:
-            median_position = None
-            median_size = None
-            median_rotation = None
+            positions = [r.sticker_position for r in current_results if r.sticker_position is not None]
+            sizes = [r.sticker_size for r in current_results if r.sticker_size is not None]
+            rotations = [r.sticker_rotation for r in current_results if r.sticker_rotation is not None]
 
-        # Get most common value for sticker_matches_design
-        matches = [r.sticker_matches_design for r in results if r.sticker_matches_design is not None]
-        sticker_matches_design = max(set(matches), key=matches.count) if matches else None
+            if positions:
+                median_position = tuple(median([pos[i] for pos in positions]) for i in range(2))
+
+            if sizes:
+                median_size = tuple(median([size[i] for size in sizes]) for i in range(2))
+
+            if rotations:
+                median_rotation = median(rotations)
+
+            matches = [r.sticker_matches_design for r in current_results if r.sticker_matches_design is not None]
+            if matches:
+                sticker_matches_design = Counter(matches).most_common(1)[0][0]
+
+            if median_position and median_rotation:
+                def distance_to_median(result):
+                    if not result.sticker_position or result.sticker_rotation is None:
+                        return float('inf')
+
+                    pos_distance = sum((result.sticker_position[i] - median_position[i]) ** 2 for i in range(2)) ** 0.5
+                    rot_distance = abs(result.sticker_rotation - median_rotation)
+                    return pos_distance + rot_distance * 5  # Weight rotation differences
+
+                best_result = min(current_results, key=distance_to_median)
+                best_image = best_result.sticker_image
+            else:
+                best_image = current_results[0].sticker_image
+        else:
+            best_image = current_results[0].sticker_image
 
         result = StickerValidationResult(
             sticker_present=sticker_present,
             sticker_matches_design=sticker_matches_design,
-            sticker_image=results[0].sticker_image,  # todo take nearest to median values by rotation and location
+            sticker_image=best_image,
             sticker_position=median_position,
             sticker_size=median_size,
             sticker_rotation=median_rotation,
-            seq_number=results[0].seq_number,
-            detected_at=results[0].detected_at
+            seq_number=self.__last_processed_acc_number,
+            detected_at=current_results[0].detected_at
         )
 
         combined_validation_results.put(result)
