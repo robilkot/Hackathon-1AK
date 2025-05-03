@@ -123,9 +123,9 @@ class ShapeProcessor:
         (y, x, _) = context.image.shape
         contours, _ = cv2.findContours(shape, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
-        border_left = self.settings.detection_border_left
-        border_right = self.settings.detection_border_right
-        line_height = self.settings.detection_line_height
+        border_left = self.settings.detection.detection_border_left
+        border_right = self.settings.detection.detection_border_right
+        line_height = self.settings.detection.detection_line_height
 
         p1 = (x * border_left, y * line_height)
         p2 = (x * border_right, y * line_height)
