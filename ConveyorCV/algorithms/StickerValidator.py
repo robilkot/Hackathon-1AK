@@ -129,6 +129,11 @@ class StickerValidator:
         if len(results) == 0:
             return
 
+        for i, test in enumerate(results):
+            assert test.seq_number == self.__last_processed_acc_number, 'Wrong seq_number in combined validation!'
+            # logger.info(f'{test.seq_number}')
+            # cv2.imwrite(f'data/{test.seq_number}_{i}.jpg', test.sticker_image)
+
         # Get most common value for sticker_present
         sticker_present = max(set(r.sticker_present for r in results), key=list(results).count)
 

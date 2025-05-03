@@ -1,8 +1,4 @@
-﻿using Avalonia.Controls;
-using Avalonia.Layout;
-using Avalonia.Media;
-using Avalonia;
-using Avalonia.Media.Imaging;
+﻿using Avalonia.Media.Imaging;
 using Avalonia.Notification;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
@@ -12,7 +8,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reactive;
-using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 public class MainViewModel : ViewModelBase
@@ -51,7 +46,7 @@ public class MainViewModel : ViewModelBase
         get => _status;
         set => this.RaiseAndSetIfChanged(ref _status, value);
     }
-    
+
     public MainViewModel()
     {
         _webSocketService = new WebSocketService();
@@ -66,8 +61,6 @@ public class MainViewModel : ViewModelBase
         _ = StickerParameters.InitializeAsync();
         ValidationResult = new StickerValidationResultViewModel(_webSocketService);
 
-        //var canStart = this.WhenAnyValue(x => x.Status).Select(status => status is StreamStatus.Disconnected or StreamStatus.LostConnection or StreamStatus.Error);
-        //var canStop = canStart.Select(value => !value);
         StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync);
         StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync);
     }

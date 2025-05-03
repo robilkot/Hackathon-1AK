@@ -5,20 +5,25 @@ namespace ConveyorCV_frontend.ViewModels
 {
     public static class NotificationExtensions
     {
-        public static void Error(this INotificationMessageManager manager, string header, string body)
+        public static void Error(this INotificationMessageManager manager, string header, string? body = null)
         {
-            manager
+            var msg = manager
                .CreateMessage()
                .Accent(System.Drawing.Color.Red.ToHex())
                .Background(System.Drawing.Color.Red.ToHex())
                .Foreground("#FFFFFF")
                .HasHeader(header)
-               .HasMessage(body)
                .HasBadge("Ошибка")
                .Animates(true)
                .Dismiss().WithButton("Скрыть", button => { })
-               .Dismiss().WithDelay(TimeSpan.FromSeconds(10))
-               .Queue();
+               .Dismiss().WithDelay(TimeSpan.FromSeconds(10));
+
+            if (body != null)
+            {
+                msg.HasMessage(body);
+            }
+
+            msg.Queue();
         }
         public static void Success(this INotificationMessageManager manager, string header, string? body = null)
         {
