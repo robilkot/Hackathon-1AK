@@ -18,7 +18,7 @@ class ProcessingSettings(BaseModel):
 
 class ValidationSettings(BaseModel):
     position_tolerance_percent: float = 10.0
-    rotation_tolerance_degrees: float = 15.0
+    rotation_tolerance_degrees: float = 5.0
     size_ratio_tolerance: float = 0.15
 
 
