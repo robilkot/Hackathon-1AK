@@ -1,6 +1,6 @@
 import logging
 from queue import Queue
-
+from collections import Counter
 import cv2
 from numpy import median
 
@@ -13,17 +13,22 @@ combined_validation_results = Queue()
 
 class StickerValidator:
     def __init__(self, params: StickerValidationParams = None):
-        if params is None:
-            from utils.param_persistence import get_sticker_parameters
-            self.__params = get_sticker_parameters()
-        else:
-            self.__params = params
-
         self.__last_processed_acc_number: int = 1
         self.__last_processed_acc_detections: list[DetectionContext] = []
+        self.__expected_ratio_w: float = 0
+        self.__expected_ratio_h: float = 0
+        self.__params: StickerValidationParams | None = None
+
+        if params is None:
+            from utils.param_persistence import get_sticker_parameters
+            params = get_sticker_parameters()
+
+        self.set_parameters(params)
 
     def set_parameters(self, sticker_params: StickerValidationParams):
         self.__params = sticker_params
+        self.__expected_ratio_w = self.__params.sticker_size[0] / self.__params.acc_size[0]
+        self.__expected_ratio_h = self.__params.sticker_size[1] / self.__params.acc_size[1]
 
     def get_parameters(self) -> StickerValidationParams:
         return self.__params
@@ -85,12 +90,6 @@ class StickerValidator:
             position_tolerance_x = img_width * POSITION_TOLERANCE_PERCENT / 100
             position_tolerance_y = img_height * POSITION_TOLERANCE_PERCENT / 100
 
-            logger.info(f"pos "
-                        f"exp_center: ({expected_center_x:.1f}, {expected_center_y:.1f}) "
-                        f"act_center: ({x:.1f}, {y:.1f}) "
-                        f"tolerance: ({position_tolerance_x:.1f}, {position_tolerance_y:.1f}) "
-                        f"rotation: {rotation:.1f} ")
-
             position_valid = (
                     abs(x - expected_center_x) <= position_tolerance_x and
                     abs(y - expected_center_y) <= position_tolerance_y
@@ -98,75 +97,97 @@ class StickerValidator:
 
             rotation_valid = abs(rotation - self.__params.sticker_rotation) <= ROTATION_TOLERANCE_DEGREES
 
-            #todo calculate one time
-            expected_width_ratio = self.__params.sticker_size[0] / self.__params.acc_size[0]
-            expected_height_ratio = self.__params.sticker_size[1] / self.__params.acc_size[1]
-
-            actual_width_ratio = sticker_size[0] / img_width
-            actual_height_ratio = sticker_size[1] / img_height
-
-            logger.info(f"size "
-                        f"exp_ratio: ({expected_width_ratio:.4f} ({self.__params.sticker_size[0]:.1f}/{self.__params.acc_size[0]:.1f}), {expected_height_ratio:.4f} ({self.__params.sticker_size[1]:.1f}/{self.__params.acc_size[1]:.1f})) "
-                        f"act_ratio: ({actual_width_ratio:.4f} ({sticker_size[0]:.1f}/{img_width:.1f}) ,{actual_height_ratio:.4f} ({sticker_size[1]:.1f}/{img_height:.1f})) ")
+            actual_ratio_w = sticker_size[0] / img_width
+            actual_ratio_h = sticker_size[1] / img_height
 
             size_valid = (
-                    abs(actual_width_ratio - expected_width_ratio) <= SIZE_RATIO_TOLERANCE and
-                    abs(actual_height_ratio - expected_height_ratio) <= SIZE_RATIO_TOLERANCE
+                    abs(actual_ratio_w - self.__expected_ratio_w) <= SIZE_RATIO_TOLERANCE and
+                    abs(actual_ratio_h - self.__expected_ratio_h) <= SIZE_RATIO_TOLERANCE
             )
 
             sticker_matches_design = position_valid and rotation_valid and size_valid
             context.validation_results.sticker_matches_design = sticker_matches_design
 
-            logger.info(f"SEQ #{context.seq_number} "
-                        f"total: {sticker_matches_design} "
-                        f"position: {position_valid} "
-                        f"rotation: {rotation_valid} "
-                        f"size: {size_valid} ")
+            logger.info(f"SEQ {context.seq_number} "
+                        f"total: {'OK' if sticker_matches_design else 'ERROR'} "
+                        f"pos: {'OK' if position_valid else 'ERROR'} "
+                        f"rot: {'OK' if rotation_valid else 'ERROR'} "
+                        f"siz: {'OK' if size_valid else 'ERROR'} "
+                        f"center: {x:.1f}/{expected_center_x:.1f}, {y:.1f}/{expected_center_y:.1f} "
+                        f"(tolerance: {position_tolerance_x:.1f}, {position_tolerance_y:.1f}) "
+                        f"rot: {rotation:.1f} "
+                        f"asp: {actual_ratio_w:.2f}/{self.__expected_ratio_w:.2f}, {actual_ratio_h:.2f}/{self.__expected_ratio_h:.2f} ")
 
         self.__last_processed_acc_detections.append(context)
         return context
 
     def process_combined_validation(self):
-        results = list([ctx.validation_results for ctx in self.__last_processed_acc_detections
-                        if ctx.seq_number == self.__last_processed_acc_number])
-        if len(results) == 0:
+        if not self.__last_processed_acc_detections:
             return
 
-        for i, test in enumerate(results):
+        current_results = [ctx.validation_results for ctx in self.__last_processed_acc_detections
+                           if ctx and ctx.validation_results and ctx.seq_number == self.__last_processed_acc_number]
+
+        if not current_results:
+            return
+
+        present_values = [r.sticker_present for r in current_results]
+        sticker_present = Counter(present_values).most_common(1)[0][0] if present_values else False
+
+        for i, test in enumerate(current_results):
             assert test.seq_number == self.__last_processed_acc_number, 'Wrong seq_number in combined validation!'
             # logger.info(f'{test.seq_number}')
             cv2.imwrite(f'data/{test.seq_number}_{i}.jpg', test.sticker_image)
 
-        # Get most common value for sticker_present
-        sticker_present = max(set(r.sticker_present for r in results), key=list(results).count)
-
-        # Get median values for optional numeric fields
-        positions = list([r.sticker_position for r in results if r.sticker_position is not None])
-        sizes = list([r.sticker_size for r in results if r.sticker_size is not None])
-        rotations = list([r.sticker_rotation for r in results if r.sticker_rotation is not None])
+        sticker_matches_design = None
+        median_position = None
+        median_size = None
+        median_rotation = None
+        best_image = None
 
         if sticker_present:
-            median_position = tuple(median(x) for x in zip(*positions)) if positions else None
-            median_size = tuple(median(x) for x in zip(*sizes)) if sizes else None
-            median_rotation = median(rotations) if rotations else None
-        else:
-            median_position = None
-            median_size = None
-            median_rotation = None
+            positions = [r.sticker_position for r in current_results if r.sticker_position is not None]
+            sizes = [r.sticker_size for r in current_results if r.sticker_size is not None]
+            rotations = [r.sticker_rotation for r in current_results if r.sticker_rotation is not None]
 
-        # Get most common value for sticker_matches_design
-        matches = [r.sticker_matches_design for r in results if r.sticker_matches_design is not None]
-        sticker_matches_design = max(set(matches), key=matches.count) if matches else None
+            if positions:
+                median_position = tuple(median([pos[i] for pos in positions]) for i in range(2))
+
+            if sizes:
+                median_size = tuple(median([size[i] for size in sizes]) for i in range(2))
+
+            if rotations:
+                median_rotation = median(rotations)
+
+            matches = [r.sticker_matches_design for r in current_results if r.sticker_matches_design is not None]
+            if matches:
+                sticker_matches_design = Counter(matches).most_common(1)[0][0]
+
+            if median_position and median_rotation:
+                def distance_to_median(result):
+                    if not result.sticker_position or result.sticker_rotation is None:
+                        return float('inf')
+
+                    pos_distance = sum((result.sticker_position[i] - median_position[i]) ** 2 for i in range(2)) ** 0.5
+                    rot_distance = abs(result.sticker_rotation - median_rotation)
+                    return pos_distance + rot_distance * 5  # Weight rotation differences
+
+                best_result = min(current_results, key=distance_to_median)
+                best_image = best_result.sticker_image
+            else:
+                best_image = current_results[0].sticker_image
+        else:
+            best_image = current_results[0].sticker_image
 
         result = StickerValidationResult(
             sticker_present=sticker_present,
             sticker_matches_design=sticker_matches_design,
-            sticker_image=results[0].sticker_image,  # todo take nearest to median values by rotation and location
+            sticker_image=best_image,
             sticker_position=median_position,
             sticker_size=median_size,
             sticker_rotation=median_rotation,
-            seq_number=results[0].seq_number,
-            detected_at=results[0].detected_at
+            seq_number=self.__last_processed_acc_number,
+            detected_at=current_results[0].detected_at
         )
 
         combined_validation_results.put(result)
