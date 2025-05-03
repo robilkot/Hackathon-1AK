@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from backend.settings import get_settings
 import cv2
 import numpy as np
 
@@ -8,7 +9,8 @@ from utils.env import *
 
 
 class ShapeProcessor:
-    def __init__(self):
+    def __init__(self, settings=None):
+        self.settings = settings or get_settings()
         self.objects_processed = 0
         self.last_contour_center_x = 0
         self.last_detected_at = datetime.now()
@@ -120,8 +122,13 @@ class ShapeProcessor:
         shape = context.shape
         (y, x, _) = context.image.shape
         contours, _ = cv2.findContours(shape, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-        p1 = (x * COEFF_DETECTION_BORDER_LEFT, y * COEFF_DETECTION_LINE_HEIGHT)
-        p2 = (x * COEFF_DETECTION_BORDER_RIGHT, y * COEFF_DETECTION_LINE_HEIGHT)
+
+        border_left = self.settings.detection_border_left
+        border_right = self.settings.detection_border_right
+        line_height = self.settings.detection_line_height
+
+        p1 = (x * border_left, y * line_height)
+        p2 = (x * border_right, y * line_height)
 
         for c in contours:
             # Filter shadow points first

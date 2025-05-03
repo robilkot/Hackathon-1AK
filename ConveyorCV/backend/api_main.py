@@ -8,7 +8,7 @@ load_dotenv()
 
 import logging
 import logging.config
-from api import app
+from api import app, router
 
 from fastapi.openapi.utils import get_openapi
 
@@ -58,6 +58,7 @@ app.openapi = custom_openapi
 
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
+    app.include_router(router)
     port = int(os.getenv("API_PORT", "8000"))
     logger.info(f"API documentation available at http://localhost:{port}/docs")
     logger.info(f"Example available at http://localhost:{port}/example")

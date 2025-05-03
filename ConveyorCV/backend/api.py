@@ -4,11 +4,9 @@ import logging
 import queue
 from contextlib import asynccontextmanager
 from multiprocessing import Queue, Process
-from sqlalchemy.orm import Session
-from fastapi import Depends, Query
+from fastapi import Depends, Query, APIRouter
 from typing import Optional
 
-import cv2
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -22,7 +20,7 @@ from algorithms.StickerValidator import StickerValidator
 from backend.db import paginate_validation_logs, delete_validation_log_by_id, delete_all_validation_logs
 from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
-from settings import get_settings
+from settings import get_settings, Settings, save_settings, reset_settings
 from utils.param_persistence import save_sticker_parameters
 from websocket_manager import WebSocketManager
 
@@ -215,6 +213,34 @@ def delete_validation_log(log_id: int):
 def delete_all_validation_logs_endpoint():
     """Delete all validation logs from the database"""
     return delete_all_validation_logs()
+
+router = APIRouter(prefix="/settings", tags=["settings"])
+
+@router.get("/")
+def get_app_settings():
+    """Get current application settings"""
+    settings = get_settings()
+    return settings.to_dict()
+
+@router.post("/")
+def update_settings(settings_data: dict):
+    """Update application settings"""
+    try:
+        new_settings = Settings.from_dict(settings_data)
+        save_settings(new_settings)
+        return {"success": True, "message": "Settings updated successfully"}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to update settings: {str(e)}"}
+
+@router.post("/reset")
+def reset_app_settings():
+    """Reset settings to default values"""
+    try:
+        reset_settings()
+        return {"success": True, "message": "Settings reset to defaults"}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to reset settings: {str(e)}"}
+
 
 
 @app.get("/example", response_class=HTMLResponse)
