@@ -139,7 +139,7 @@ class StickerValidator:
         present_values = [r.sticker_present for r in current_results]
         sticker_present = Counter(present_values).most_common(1)[0][0] if present_values else False
 
-        for i, test in enumerate(results):
+        for i, test in enumerate(current_results):
             assert test.seq_number == self.__last_processed_acc_number, 'Wrong seq_number in combined validation!'
             # logger.info(f'{test.seq_number}')
             cv2.imwrite(f'data/{test.seq_number}_{i}.jpg', test.sticker_image)
