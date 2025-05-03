@@ -23,8 +23,8 @@ class ValidationSettings(BaseModel):
 
 
 class DetectionSettings(BaseModel):
-    detection_border_left: float = 0.3
-    detection_border_right: float = 0.7
+    detection_border_left: float = 0.32
+    detection_border_right: float = 0.68
     detection_line_height: float = 0.5
 
 
