@@ -135,6 +135,61 @@ class DetectionContext:
     processed_image: np.ndarray | None = None  # Aligned and cropped image
     validation_results: StickerValidationResult | None = None
 
+    def to_dict(self) -> dict:
+        """Serialize DetectionContext to dictionary"""
+        result = {
+            "seq_number": self.seq_number,
+            "detected_at": self.detected_at.isoformat()
+        }
+
+        if self.image is not None:
+            _, buffer = cv2.imencode('.jpg', self.image)
+            result["image"] = base64.b64encode(buffer).decode('utf-8')
+
+        if self.shape is not None:
+            _, buffer = cv2.imencode('.jpg', self.shape)
+            result["shape"] = base64.b64encode(buffer).decode('utf-8')
+
+        if self.processed_image is not None:
+            _, buffer = cv2.imencode('.jpg', self.processed_image)
+            result["processed_image"] = base64.b64encode(buffer).decode('utf-8')
+
+        # Include validation results
+        if self.validation_results:
+            result["validation_results"] = self.validation_results.to_dict()
+
+        return result
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DetectionContext":
+        """Create DetectionContext from dictionary data"""
+        ctx = cls(np.array([]))
+
+        # Set basic properties
+        ctx.seq_number = data.get("seq_number", 0)
+        if "detected_at" in data:
+            ctx.detected_at = datetime.fromisoformat(data["detected_at"])
+
+        # Decode images
+        if "image" in data:
+            img_data = base64.b64decode(data["image"])
+            ctx.image = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
+
+        if "shape" in data:
+            shape_data = base64.b64decode(data["shape"])
+            ctx.shape = cv2.imdecode(np.frombuffer(shape_data, np.uint8), cv2.IMREAD_GRAYSCALE)
+
+        if "processed_image" in data:
+            img_data = base64.b64decode(data["processed_image"])
+            ctx.processed_image = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
+
+        # Reconstruct validation results if present
+        if "validation_results" in data:
+            from model.model import StickerValidationResult
+            ctx.validation_results = StickerValidationResult.from_dict(data["validation_results"])
+
+        return ctx
+
 
 class StreamingMessageType(IntEnum):
     RAW = 1

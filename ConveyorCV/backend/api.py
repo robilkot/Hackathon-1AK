@@ -1,11 +1,11 @@
 import asyncio
 import datetime
 import logging
-import os
 import queue
+import time
 from contextlib import asynccontextmanager
-from multiprocessing import Queue, Process
-from fastapi import Depends, Query, APIRouter
+from multiprocessing import Queue
+from fastapi import Query, APIRouter
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
@@ -21,7 +21,7 @@ from algorithms.StickerValidator import StickerValidator
 from backend.db import paginate_validation_logs, delete_validation_log_by_id, delete_all_validation_logs
 from model.model import StickerValidationParams, StreamingMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
-from settings import get_settings, Settings, save_settings, reset_settings
+from settings import get_settings, Settings, save_settings
 from utils.param_persistence import save_sticker_parameters
 from websocket_manager import WebSocketManager
 
@@ -106,10 +106,9 @@ def restart_processes(background_tasks: BackgroundTasks):
     """Stop all processes and restart them with new settings while preserving queue content"""
     global settings, camera, detector, processor, validator, processes
     global shape_queue, processed_shape_queue, results_queue, websocket_queue, exit_queue
-
+    start_time = time.time()
     logger.info("Starting complete system restart - saving queue content and terminating all processes")
 
-    # Save queue content
     saved_queue_content = {
         'shape_queue': [],
         'processed_shape_queue': [],
@@ -117,7 +116,6 @@ def restart_processes(background_tasks: BackgroundTasks):
         'websocket_queue': []
     }
 
-    # Extract items from queues
     for name, q in [
         ('shape_queue', shape_queue),
         ('processed_shape_queue', processed_shape_queue),
@@ -131,7 +129,8 @@ def restart_processes(background_tasks: BackgroundTasks):
                 pass
         logger.info(f"Saved {len(saved_queue_content[name])} items from {name}")
 
-    # Terminate all processes
+    exit_queue.put(None)
+
     for process in processes:
         if process.is_alive():
             logger.info(f"Terminating process: {process.name} (pid: {process.pid})")
@@ -144,7 +143,6 @@ def restart_processes(background_tasks: BackgroundTasks):
     settings = get_settings()
     logger.info("Settings reloaded, recreating all components")
 
-    # Reinitialize components
     if settings.camera_type == "video":
         camera = VideoFileCamera(settings.camera.video_path)
         logger.info(f"Created VideoFileCamera: {settings.camera.video_path}")
@@ -157,14 +155,12 @@ def restart_processes(background_tasks: BackgroundTasks):
     validator = StickerValidator()
     logger.info("Created new components")
 
-    # Create all queues and processes
     exit_queue = Queue()
     shape_queue = Queue()
     processed_shape_queue = Queue()
     results_queue = Queue()
     websocket_queue = Queue()
 
-    # Create all processes
     shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 20)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
@@ -174,7 +170,6 @@ def restart_processes(background_tasks: BackgroundTasks):
 
     processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
 
-    # Restore queue content
     for name, q in [
         ('shape_queue', shape_queue),
         ('processed_shape_queue', processed_shape_queue),
@@ -185,13 +180,15 @@ def restart_processes(background_tasks: BackgroundTasks):
             q.put(item)
         logger.info(f"Restored {len(saved_queue_content[name])} items to {name}")
 
-    # Start all processes
     for process in processes:
         logger.info(f"Starting process: {process.name}")
         process.start()
         logger.info(f"Process {process.name} started with pid: {process.pid}")
 
     logger.info("System restart completed")
+    elapsed_time = time.time() - start_time
+    logger.info(f"System restart completed in {elapsed_time:.2f} seconds")
+
     return {"status": "success", "message": "All processes restarted with updated settings and preserved queue data"}
 
 init_processes()
