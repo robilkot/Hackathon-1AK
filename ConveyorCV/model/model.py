@@ -133,6 +133,7 @@ class DetectionContext:
     seq_number: int = 0
     shape: np.ndarray | None = None  # BW mask
     processed_image: np.ndarray | None = None  # Aligned and cropped image
+    processed_image_corners = None
     validation_results: StickerValidationResult | None = None
 
     def to_dict(self) -> dict:

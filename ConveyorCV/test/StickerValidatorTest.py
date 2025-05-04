@@ -1,5 +1,4 @@
 import unittest
-from asyncio import wait_for
 
 import cv2
 import numpy as np

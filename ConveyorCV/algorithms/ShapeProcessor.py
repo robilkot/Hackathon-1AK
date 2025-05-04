@@ -145,6 +145,7 @@ class ShapeProcessor:
             if bool_fits:
                 processed_image = self.__cut_out_contour_evened_out(image_source, corners)
                 context.processed_image = processed_image
+                context.processed_image_corners = corners
                 self.__on_contour_valid(context, c)
                 break
 
