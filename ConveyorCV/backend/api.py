@@ -4,12 +4,10 @@ import logging
 import queue
 import time
 from contextlib import asynccontextmanager
-from multiprocessing import Queue, Process
-from sqlalchemy.orm import Session
-from fastapi import Depends, Query
+from multiprocessing import Queue
+from fastapi import Query, APIRouter
 from typing import Optional
 
-import cv2
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -20,10 +18,11 @@ from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
+from backend.context_manager import ContextManager
 from backend.db import paginate_validation_logs, delete_validation_log_by_id, delete_all_validation_logs
 from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
-from settings import get_settings
+from settings import get_settings, Settings, save_settings
 from utils.param_persistence import save_sticker_parameters
 from websocket_manager import WebSocketManager
 
@@ -60,6 +59,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 manager = WebSocketManager()
+context_manager = ContextManager()
 
 camera: CameraInterface
 if settings.camera_type == "video":
@@ -103,6 +103,105 @@ def init_processes():
     processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
     queues = [exit_queue, shape_queue, processed_shape_queue, results_queue, websocket_queue]
 
+
+def restart_processes(background_tasks: BackgroundTasks):
+    """Stop all processes and restart them with new settings while preserving queue content"""
+    global settings, camera, detector, processor, validator, processes
+    global shape_queue, processed_shape_queue, results_queue, websocket_queue, exit_queue
+    global shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process
+    start_time = time.time()
+    logger.info("Starting complete system restart - saving queue content and terminating all processes")
+
+    context_manager.save_contexts(
+        shape_detector_process if 'shape_detector_process' in globals() else None,
+        shape_processor_process if 'shape_processor_process' in globals() else None,
+        sticker_validator_process if 'sticker_validator_process' in globals() else None
+    )
+
+    saved_queue_content = {
+        'shape_queue': [],
+        'processed_shape_queue': [],
+        'results_queue': [],
+        'websocket_queue': []
+    }
+
+    for name, q in [
+        ('shape_queue', shape_queue),
+        ('processed_shape_queue', processed_shape_queue),
+        ('results_queue', results_queue),
+        ('websocket_queue', websocket_queue)
+    ]:
+        while not q.empty():
+            try:
+                saved_queue_content[name].append(q.get_nowait())
+            except:
+                pass
+        logger.info(f"Saved {len(saved_queue_content[name])} items from {name}")
+
+    exit_queue.put(None)
+
+    for process in processes:
+        if process.is_alive():
+            logger.info(f"Terminating process: {process.name} (pid: {process.pid})")
+            process.terminate()
+            process.join(timeout=2)
+            logger.info(f"Process {process.name} terminated")
+        else:
+            logger.info(f"Process {process.name} was not running")
+
+    settings = get_settings()
+    logger.info("Settings reloaded, recreating all components")
+
+    if settings.camera_type == "video":
+        camera = VideoFileCamera(settings.camera.video_path)
+        logger.info(f"Created VideoFileCamera: {settings.camera.video_path}")
+    else:
+        camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
+        logger.info(f"Created IPCamera: {settings.camera.phone_ip}:{settings.camera.port}")
+
+    detector = ShapeDetector()
+    processor = ShapeProcessor(settings)
+    validator = StickerValidator()
+    logger.info("Created new components")
+
+    exit_queue = Queue()
+    shape_queue = Queue()
+    processed_shape_queue = Queue()
+    results_queue = Queue()
+    websocket_queue = Queue()
+
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 20)
+    shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
+    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
+                                                        validator)
+    validation_logger_process = ValidationResultsLogger(results_queue)
+    logger.info("Created new process instances")
+
+    processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
+
+    context_manager.restore_contexts(shape_detector_process, shape_processor_process, sticker_validator_process)
+    logger.info("Restored process contexts")
+    
+    for name, q in [
+        ('shape_queue', shape_queue),
+        ('processed_shape_queue', processed_shape_queue),
+        ('results_queue', results_queue),
+        ('websocket_queue', websocket_queue)
+    ]:
+        for item in saved_queue_content[name]:
+            q.put(item)
+        logger.info(f"Restored {len(saved_queue_content[name])} items to {name}")
+
+    for process in processes:
+        logger.info(f"Starting process: {process.name}")
+        process.start()
+        logger.info(f"Process {process.name} started with pid: {process.pid}")
+
+    logger.info("System restart completed")
+    elapsed_time = time.time() - start_time
+    logger.info(f"System restart completed in {elapsed_time:.2f} seconds")
+
+    return {"status": "success", "message": "All processes restarted with updated settings and preserved queue data"}
 
 init_processes()
 
@@ -175,6 +274,10 @@ async def stop_stream():
     stop_processes()
     return {"status": "streaming stopped"}
 
+@app.post("/stream/restart")
+async def restart_stream(background_tasks: BackgroundTasks):
+    return restart_processes(background_tasks)
+
 
 @app.get("/sticker/parameters")
 async def get_sticker_parameters():
@@ -213,6 +316,31 @@ def delete_validation_log(log_id: int):
 def delete_all_validation_logs_endpoint():
     """Delete all validation logs from the database"""
     return delete_all_validation_logs()
+
+router = APIRouter(prefix="/settings", tags=["settings"])
+
+@router.get("/")
+def get_app_settings():
+    """Get current application settings"""
+    settings = get_settings()
+    return settings.to_dict()
+
+@router.post("/apply")
+def apply_settings(settings_data: dict, background_tasks: BackgroundTasks):
+    """Update settings and restart processes to apply them"""
+    try:
+        new_settings = Settings.from_dict(settings_data)
+        save_settings(new_settings)
+        system_running = any(process.is_alive() for process in processes)
+
+        if system_running:
+            result = restart_processes(background_tasks)
+            return {"success": True, "message": "Settings applied and processes restarted"}
+        else:
+            return {"success": True, "message": "Settings applied (system not running, no restart needed)"}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to apply settings: {str(e)}"}
+
 
 
 @app.get("/example", response_class=HTMLResponse)
@@ -409,6 +537,53 @@ def get_example_html():
             <button id="saveParamsBtn">Save Parameters</button>
         </div>
     </div>
+    <div class="app-settings-section">
+  <h2>Application Settings</h2>
+  <div class="parameter-form">
+    <div class="param-group">
+      <h3>Camera</h3>
+      <label>Camera Type:
+        <select id="cameraType">
+          <option value="video">Video File</option>
+          <option value="ip">IP Camera</option>
+        </select>
+      </label>
+      <label>IP Camera Address: <input type="text" id="cameraIp"></label>
+      <label>IP Camera Port: <input type="number" id="cameraPort"></label>
+      <label>Video File Path: <input type="text" id="videoPath"></label>
+    </div>
+    <div class="param-group">
+      <h3>Detection</h3>
+      <label>Border Left: <input type="number" id="detBorderLeft" step="0.01" min="0" max="1"></label>
+      <label>Border Right: <input type="number" id="detBorderRight" step="0.01" min="0" max="1"></label>
+      <label>Line Height: <input type="number" id="detLineHeight" step="0.01" min="0" max="1"></label>
+    </div>
+    <div class="param-group">
+      <h3>Processing</h3>
+      <label>Downscale Width: <input type="number" id="procWidth" step="1" min="1"></label>
+      <label>Downscale Height: <input type="number" id="procHeight" step="1" min="1"></label>
+      <label>Background Photo Path: <input type="text" id="bgPhotoPath"></label>
+    </div>
+    <div class="param-group">
+      <h3>Validation</h3>
+      <label>Position Tolerance %: <input type="number" id="valPosTol" step="0.1" min="0"></label>
+      <label>Rotation Tolerance °: <input type="number" id="valRotTol" step="0.1" min="0"></label>
+      <label>Size Ratio Tol: <input type="number" id="valSizeTol" step="0.001" min="0"></label>
+    </div>
+    <div class="param-group">
+      <h3>File Paths</h3>
+      <label>Database URL: <input type="text" id="dbUrl"></label>
+      <label>Sticker Params File: <input type="text" id="stickerParamsFile"></label>
+      <label>Sticker Design Path: <input type="text" id="stickerDesignPath"></label>
+      <label>Sticker Output Path: <input type="text" id="stickerOutputPath"></label>
+    </div>
+    <div class="action-buttons">
+      <button id="loadAppSettingsBtn">Load App Settings</button>
+      <button id="saveAppSettingsBtn">Save App Settings</button>
+      <button id="restartSystemBtn">Save & Restart System</button>
+    </div>
+  </div>
+</div>
 </div>
 <style>
     /* Parameter form styling */
@@ -685,7 +860,107 @@ def get_example_html():
         document.getElementById('loadParamsBtn').addEventListener('click', loadParameters);
     document.getElementById('saveParamsBtn').addEventListener('click', saveParameters);
     document.getElementById('stickerDesignUpload').addEventListener('change', handleDesignUpload);
+    async function loadAppSettings() {
+    try {
+      const res = await fetch('/settings/');
+      const cfg = await res.json();
+      
+      // Camera settings
+      document.getElementById('cameraType').value = cfg.camera_type || 'video';
+      document.getElementById('cameraIp').value = cfg.camera.phone_ip;
+      document.getElementById('cameraPort').value = cfg.camera.port;
+      document.getElementById('videoPath').value = cfg.camera.video_path;
+      
+      // Detection settings
+      document.getElementById('detBorderLeft').value = cfg.detection.detection_border_left;
+      document.getElementById('detBorderRight').value = cfg.detection.detection_border_right;
+      document.getElementById('detLineHeight').value = cfg.detection.detection_line_height;
+      
+      // Processing settings
+      document.getElementById('procWidth').value = cfg.processing.downscale_width;
+      document.getElementById('procHeight').value = cfg.processing.downscale_height;
+      document.getElementById('bgPhotoPath').value = cfg.bg_photo_path || '';
+      
+      // Validation settings
+      document.getElementById('valPosTol').value = cfg.validation.position_tolerance_percent;
+      document.getElementById('valRotTol').value = cfg.validation.rotation_tolerance_degrees;
+      document.getElementById('valSizeTol').value = cfg.validation.size_ratio_tolerance;
+      
+      // File paths
+      document.getElementById('dbUrl').value = cfg.database_url;
+      document.getElementById('stickerParamsFile').value = cfg.sticker_params_file;
+      document.getElementById('stickerDesignPath').value = cfg.sticker_design_path;
+      document.getElementById('stickerOutputPath').value = cfg.sticker_output_path;
+      
+      addEvent('App settings loaded');
+    } catch (e) {
+      console.error(e);
+      addEvent('Error loading app settings: ' + e.message);
+    }
+  }
 
+  async function saveAppSettings() {
+    try {
+      const payload = {
+        camera_type: document.getElementById('cameraType').value,
+        bg_photo_path: document.getElementById('bgPhotoPath').value,
+        database_url: document.getElementById('dbUrl').value,
+        sticker_params_file: document.getElementById('stickerParamsFile').value,
+        sticker_design_path: document.getElementById('stickerDesignPath').value,
+        sticker_output_path: document.getElementById('stickerOutputPath').value,
+        detection: {
+          detection_border_left: parseFloat(document.getElementById('detBorderLeft').value),
+          detection_border_right: parseFloat(document.getElementById('detBorderRight').value),
+          detection_line_height: parseFloat(document.getElementById('detLineHeight').value)
+        },
+        processing: {
+          downscale_width: parseInt(document.getElementById('procWidth').value),
+          downscale_height: parseInt(document.getElementById('procHeight').value)
+        },
+        validation: {
+          position_tolerance_percent: parseFloat(document.getElementById('valPosTol').value),
+          rotation_tolerance_degrees: parseFloat(document.getElementById('valRotTol').value),
+          size_ratio_tolerance: parseFloat(document.getElementById('valSizeTol').value)
+        },
+        camera: {
+          phone_ip: document.getElementById('cameraIp').value,
+          port: parseInt(document.getElementById('cameraPort').value),
+          video_path: document.getElementById('videoPath').value
+        }
+      };
+      
+      const res = await fetch('/settings/apply', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      addEvent('App settings saved: ' + JSON.stringify(result));
+      return result;
+    } catch (e) {
+      console.error(e);
+      addEvent('Error saving app settings: ' + e.message);
+      return { success: false, message: e.message };
+    }
+  }
+
+  document.getElementById('loadAppSettingsBtn').addEventListener('click', loadAppSettings);
+  document.getElementById('saveAppSettingsBtn').addEventListener('click', saveAppSettings);
+  document.getElementById('restartSystemBtn').addEventListener('click', async () => {
+    const saveResult = await saveAppSettings();
+    if (saveResult.success) {
+      try {
+        const res = await fetch('/stream/restart', { method: 'POST' });
+        const result = await res.json();
+        addEvent('System restarted: ' + JSON.stringify(result));
+      } catch (e) {
+        addEvent('Error restarting system: ' + e.message);
+      }
+    }
+  });
+
+  // Auto-load settings on page load
+  document.addEventListener('DOMContentLoaded', loadAppSettings);
     let currentDesignImage = null;
     
     async function loadParameters() {

@@ -5,6 +5,7 @@ import cv2
 from numpy import median
 
 from algorithms.InvariantTM import invariant_match_template
+from backend.settings import get_settings
 from model.model import StickerValidationParams, DetectionContext, StickerValidationResult
 
 logger = logging.getLogger(__name__)
@@ -79,30 +80,30 @@ class StickerValidator:
             context.validation_results.sticker_rotation = float(rotation)
             context.validation_results.sticker_size = size_tuple
 
-            #todo add it to settings
-            POSITION_TOLERANCE_PERCENT = 10.0  # % of accumulator size
-            ROTATION_TOLERANCE_DEGREES = 5.0  # degrees
-            SIZE_RATIO_TOLERANCE = 0.15  # % difference in expected ratio
+            settings = get_settings()
+            position_tolerance_percent = settings.validation.position_tolerance_percent
+            rotation_tolerance_degrees = settings.validation.rotation_tolerance_degrees
+            size_ratio_tolerance = settings.validation.size_ratio_tolerance
 
             expected_center_x = self.__params.sticker_center[0] / self.__params.acc_size[0] * img_width
             expected_center_y = self.__params.sticker_center[1] / self.__params.acc_size[1] * img_height
 
-            position_tolerance_x = img_width * POSITION_TOLERANCE_PERCENT / 100
-            position_tolerance_y = img_height * POSITION_TOLERANCE_PERCENT / 100
+            position_tolerance_x = img_width * position_tolerance_percent / 100
+            position_tolerance_y = img_height * position_tolerance_percent / 100
 
             position_valid = (
                     abs(x - expected_center_x) <= position_tolerance_x and
                     abs(y - expected_center_y) <= position_tolerance_y
             )
 
-            rotation_valid = abs(rotation - self.__params.sticker_rotation) <= ROTATION_TOLERANCE_DEGREES
+            rotation_valid = abs(rotation - self.__params.sticker_rotation) <= rotation_tolerance_degrees
 
             actual_ratio_w = sticker_size[0] / img_width
             actual_ratio_h = sticker_size[1] / img_height
 
             size_valid = (
-                    abs(actual_ratio_w - self.__expected_ratio_w) <= SIZE_RATIO_TOLERANCE and
-                    abs(actual_ratio_h - self.__expected_ratio_h) <= SIZE_RATIO_TOLERANCE
+                    abs(actual_ratio_w - self.__expected_ratio_w) <= size_ratio_tolerance and
+                    abs(actual_ratio_h - self.__expected_ratio_h) <= size_ratio_tolerance
             )
 
             sticker_matches_design = position_valid and rotation_valid and size_valid
