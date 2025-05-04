@@ -5,7 +5,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:ConveyorCV_frontend.ViewModels"
     xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters"
-    mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="720"
+    xmlns:controls="clr-namespace:Avalonia.Notification.Controls;assembly=Notification.Avalonia"
+    mc:Ignorable="d" d:DesignWidth="1920" d:DesignHeight="1080"
     x:Class="ConveyorCV_frontend.Views.ValidationLogsView"
     x:DataType="vm:ValidationLogsViewModel">
 
@@ -61,15 +62,28 @@
         <Style Selector="Border.card:nth-child(2n)">
             <Setter Property="Background" Value="#F5F5F5" />
         </Style>
-    </UserControl.Styles>
+	</UserControl.Styles>
 
-    <Grid Margin="0,25,0,0"
-          RowDefinitions="Auto,*">
+	<Grid
+		Margin="20,0"
+		MaxWidth="1200"
+		RowDefinitions="Auto,*">
+
+		<controls:NotificationMessageContainer
+			ZIndex="1"
+			Grid.RowSpan="2"
+			MaxWidth="600"
+			Manager="{Binding Manager}"/>
         <!-- Filter Panel -->
-        <Border Grid.Row="0" Padding="15" Margin="0,0,0,10" Background="{DynamicResource SystemRegionBrush}"
-                CornerRadius="3">
-            <Grid ColumnDefinitions="auto,auto,auto,auto,auto,auto, *, auto" HorizontalAlignment="Stretch">
-                <TextBlock Grid.Column="0" Text="С:" Margin="5, 0" />
+		<Border
+			Grid.Row="0">
+            <Grid
+				ColumnDefinitions="auto,auto,auto,auto,auto,auto, *, auto"
+				HorizontalAlignment="Stretch">
+                <TextBlock 
+					Grid.Column="0" 
+					Text="С:" 
+					Margin="5, 0" />
 				
 				<CalendarDatePicker
 					SelectedDate="{Binding StartDate}"
@@ -100,12 +114,11 @@
             </Grid>
         </Border>
         <!-- Center container for Headers, List and pagination -->
-        <Grid Grid.Row="1"
-              HorizontalAlignment="Center"
-              MaxWidth="1200"
-              Margin="20,0"
-              Grid.IsSharedSizeScope="True"
-              RowDefinitions="Auto,*,Auto">
+        <Grid
+			Grid.Row="1"
+			HorizontalAlignment="Center"
+			Grid.IsSharedSizeScope="True"
+			RowDefinitions="Auto,*,Auto">
             <!-- Column Headers -->
             <Border Grid.Row="0" Background="#E8E8E8" Padding="8" Margin="5,5,5,0" CornerRadius="3,3,0,0">
                 <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
@@ -218,9 +231,6 @@
             <Border Grid.Row="2" Background="{DynamicResource SystemRegionBrush}" Margin="5" Padding="10"
                     CornerRadius="3">
                 <Grid ColumnDefinitions="*,Auto,*">
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Spacing="5">
-                        <TextBlock Text="{Binding Status}" VerticalAlignment="Center" />
-                    </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="5">
                         <Button Command="{Binding FirstPageCommand}" ToolTip.Tip="Первая страница">
@@ -254,8 +264,8 @@
                         </Button>
                     </StackPanel>
 
-                    <TextBlock Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Run Text="Записей:" />
+                    <TextBlock Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Run Text="Всего записей:" />
                         <Run Text="{Binding TotalRecords}" />
                     </TextBlock>
                 </Grid>

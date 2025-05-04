@@ -16,13 +16,6 @@
         <global:MainViewModel />
     </Design.DataContext>
 
-	<UserControl.Styles>
-		<Style Selector="TextBlock.notificationHeaderTextStyle">
-			<Setter Property="FontSize" Value="16" />
-			<Setter Property="FontWeight" Value="DemiBold" />
-		</Style>
-	</UserControl.Styles>
-
 	<UserControl.Resources>
 		<converters:StreamStatusToTextConverter
 			x:Key="StreamStatusToTextConverter"/>
@@ -30,7 +23,7 @@
     <Panel>
 		<controls:NotificationMessageContainer 
 			ZIndex="1"
-			MaxWidth="500"
+			MaxWidth="600"
 			Manager="{Binding Manager}" />
 
 		<Menu 

@@ -20,7 +20,7 @@ from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
 from backend.context_manager import ContextManager
 from backend.db import paginate_validation_logs, delete_validation_log_by_id, delete_all_validation_logs
-from model.model import StickerValidationParams, StreamingMessage
+from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings, Settings, save_settings
 from utils.param_persistence import save_sticker_parameters
@@ -94,7 +94,7 @@ def init_processes():
     results_queue = Queue()
     websocket_queue = Queue()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 20)
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 60)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
                                                         validator)
@@ -209,6 +209,7 @@ init_processes()
 async def stream_images_async():
     logger.info(f"stream_images starting")
     last_time = datetime.datetime.now()
+
     while True:
         try:
             msg: StreamingMessage = websocket_queue.get_nowait()
@@ -217,6 +218,7 @@ async def stream_images_async():
                 raise InterruptedError
 
             await manager.broadcast_message(msg)
+
         except queue.Empty:
             pass
         except (KeyboardInterrupt, InterruptedError):
@@ -226,14 +228,9 @@ async def stream_images_async():
             logger.error(f"stream_images exception: ", str(e), type(e))
 
         current_time = datetime.datetime.now()
-        if current_time - last_time > datetime.timedelta(seconds=2):
+        if current_time - last_time > datetime.timedelta(seconds=5):
             last_time = current_time
-            # print('shape_queue: ', shape_queue.qsize())
-            # print('processed_shape_queue: ', processed_shape_queue.qsize())
-            # print('results_queue: ', results_queue.qsize())
-            # print('websocket_queue: ', websocket_queue.qsize())
-
-        await asyncio.sleep(0.016)
+            logger.info(f'shape: {shape_queue.qsize()}, processed_shape: {processed_shape_queue.qsize()}, results: {results_queue.qsize()}, ws: {websocket_queue.qsize()}')
 
 
 def start_processes(background_tasks: BackgroundTasks):

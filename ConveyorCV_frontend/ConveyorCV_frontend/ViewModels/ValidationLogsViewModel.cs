@@ -1,3 +1,4 @@
+using Avalonia.Notification;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using DynamicData;
@@ -13,6 +14,8 @@ namespace ConveyorCV_frontend.ViewModels
 {
     public class ValidationLogsViewModel : ViewModelBase, IDisposable
     {
+        public INotificationMessageManager Manager { get; } = new NotificationMessageManager();
+        
         private readonly ValidationLogService _logService;
         private readonly SourceCache<ValidationLogItemDTO, int> _logsCache;
         private readonly CompositeDisposable _disposables = new();
@@ -81,14 +84,6 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _totalRecords, value);
         }
 
-        private string _status = "Готово";
-
-        public string Status
-        {
-            get => _status;
-            set => this.RaiseAndSetIfChanged(ref _status, value);
-        }
-
         public ReactiveCommand<Unit, Unit> LoadLogsCommand { get; }
         public ReactiveCommand<Unit, Unit> NextPageCommand { get; }
         public ReactiveCommand<Unit, Unit> PreviousPageCommand { get; }
@@ -99,8 +94,8 @@ namespace ConveyorCV_frontend.ViewModels
         public ValidationLogsViewModel()
         {
             _logService = new ValidationLogService();
-            _logService.StatusChanged += message => Status = message;
-            _logService.ErrorOccurred += message => Status = message;
+            _logService.StatusChanged += message => Manager.Success(message);
+            _logService.ErrorOccurred += message => Manager.Error("Ошибка журнала", message);
 
             _logsCache = new SourceCache<ValidationLogItemDTO, int>(x => x.Id);
             _logsCache.Connect()

@@ -34,8 +34,6 @@ namespace ConveyorCV_frontend.Services
         {
             try
             {
-                StatusChanged?.Invoke("Загрузка журнала...");
-
                 var url = $"http://{_baseUrl}/validation/logs?page={page}&page_size={pageSize}";
 
                 if (startDate.HasValue)
@@ -50,14 +48,13 @@ namespace ConveyorCV_frontend.Services
                 var json = await response.Content.ReadAsStringAsync();
                 var logs = JsonSerializer.Deserialize<ValidationLogResponseDTO>(json, _jsonOptions);
 
-                StatusChanged?.Invoke($"Загружено {logs?.Logs?.Count() ?? 0} записей");
                 return logs;
             }
             catch (Exception ex)
             {
-                var message = $"Ошибка загрузки журнала: {ex.Message}";
-                Console.WriteLine(message);
-                ErrorOccurred?.Invoke(message);
+                Console.WriteLine(ex.Message);
+                ErrorOccurred?.Invoke(ex.Message);
+
                 return null;
             }
         }
@@ -66,19 +63,17 @@ namespace ConveyorCV_frontend.Services
         {
             try
             {
-                StatusChanged?.Invoke($"Удаление записи #{logId}...");
-        
                 var response = await _httpClient.DeleteAsync($"http://{_baseUrl}/validation/logs/{logId}");
                 response.EnsureSuccessStatusCode();
         
-                StatusChanged?.Invoke($"Запись #{logId} успешно удалена");
+                StatusChanged?.Invoke($"Запись #{logId} удалена");
                 return true;
             }
             catch (Exception ex)
             {
-                var message = $"Ошибка удаления записи: {ex.Message}";
-                Console.WriteLine(message);
-                ErrorOccurred?.Invoke(message);
+                Console.WriteLine(ex.Message);
+                ErrorOccurred?.Invoke(ex.Message);
+
                 return false;
             }
         }
