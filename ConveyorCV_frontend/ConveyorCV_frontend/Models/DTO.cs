@@ -63,7 +63,8 @@ namespace ConveyorCV_frontend.Models
 
     public record ProcessingSettingsDTO(
         int? DownscaleWidth,
-        int? DownscaleHeight
+        int? DownscaleHeight,
+        int? Fps
     );
 
     public record ValidationSettingsDTO(

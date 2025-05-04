@@ -1,12 +1,9 @@
-import queue
 import threading
-from threading import Thread
 
 import cv2
 import numpy as np
 import urllib.request
 import time
-import os
 from dotenv import load_dotenv
 
 from Camera.CameraInterface import CameraInterface
@@ -19,8 +16,8 @@ DEFAULT_PORT = 8080
 
 class IPCamera(CameraInterface):
     def __init__(self, ip_address=None, port=None):
-        self.ip_address = ip_address or os.getenv("PHONE_IP", DEFAULT_PHONE_IP)
-        self.port = port or int(os.getenv("PORT", DEFAULT_PORT))
+        self.ip_address = ip_address
+        self.port = port
         self.base_url = f"http://{self.ip_address}:{self.port}"
         self.video_cap = None
         self.is_connected = False
@@ -76,8 +73,8 @@ class IPCamera(CameraInterface):
 
 
 def get_video_stream(ip_address=None, port=None, max_retries=3):
-    ip_address = ip_address or os.getenv("PHONE_IP", DEFAULT_PHONE_IP)
-    port = port or int(os.getenv("PORT", DEFAULT_PORT))
+    ip_address = ip_address
+    port = port
     base_url = f"http://{ip_address}:{port}"
     video_url = f"{base_url}/video"
 
@@ -106,8 +103,8 @@ def get_frame(cap):
 
 
 def get_jpeg_frame(ip_address=None, port=None):
-    ip_address = ip_address or os.getenv("PHONE_IP", DEFAULT_PHONE_IP)
-    port = port or int(os.getenv("PORT", DEFAULT_PORT))
+    ip_address = ip_address
+    port = port
     base_url = f"http://{ip_address}:{port}"
     shot_url = f"{base_url}/shot.jpg"
 

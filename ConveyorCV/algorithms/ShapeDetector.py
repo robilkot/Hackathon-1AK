@@ -1,17 +1,18 @@
 import cv2
 import numpy as np
 
+from backend.settings import get_settings
 from model.model import DetectionContext
 from utils.downscale import downscale
-from utils.env import BG_PHOTO_PATH, DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
 
 
 class ShapeDetector:
-    def __init__(self):
+    def __init__(self, settings=None):
         # todo: четко определить размер ядра
         self.kernel = np.ones((12, 12), np.uint8)
-        self.image_conveyor_empty = cv2.imread(BG_PHOTO_PATH)
-        self.image_conveyor_empty = downscale(self.image_conveyor_empty, DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT)
+        self.settings = settings or get_settings()
+        self.image_conveyor_empty = cv2.imread(self.settings.bg_photo_path)
+        self.image_conveyor_empty = downscale(self.image_conveyor_empty, self.settings.processing.downscale_width, self.settings.processing.downscale_height)
         self.image_conveyor_empty = cv2.morphologyEx(self.image_conveyor_empty, cv2.MORPH_CLOSE, self.kernel, iterations=3)
 
     def detect(self, context: DetectionContext) -> DetectionContext:

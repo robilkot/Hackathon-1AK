@@ -57,6 +57,13 @@ namespace ConveyorCV_frontend.ViewModels
             get => _downscaleHeight;
             set => this.RaiseAndSetIfChanged(ref _downscaleHeight, value);
         }
+        
+        private int _fps = 20;
+        public int Fps
+        {
+            get => _fps;
+            set => this.RaiseAndSetIfChanged(ref _fps, value);
+        }
 
         // Validation settings
         private float _positionTolerancePercent = 10.0f;
@@ -222,7 +229,8 @@ namespace ConveyorCV_frontend.ViewModels
                 SettingsFilePath,
                 new ProcessingSettingsDTO(
                     DownscaleWidth,
-                    DownscaleHeight
+                    DownscaleHeight,
+                    Fps
                 ),
                 new CameraSettingsDTO(
                     PhoneIp,

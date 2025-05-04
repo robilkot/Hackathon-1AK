@@ -4,9 +4,6 @@ import multiprocessing
 import time
 from multiprocessing import Process, Queue
 from queue import Empty
-from warnings import catch_warnings
-
-import cv2
 
 from Camera.CameraInterface import CameraInterface
 from algorithms.ShapeDetector import ShapeDetector
@@ -15,7 +12,6 @@ from algorithms.StickerValidator import StickerValidator, combined_validation_re
 from model.model import DetectionContext, StreamingMessage, ImageStreamingMessageContent, \
     ValidationStreamingMessageContent, StreamingMessageType, StickerValidationParams
 from utils.downscale import downscale
-from utils.env import DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +19,11 @@ logger = logging.getLogger(__name__)
 # frames -> BW masks of prop
 class ShapeDetectorProcess(Process):
     def __init__(self, input_queue: Queue, shape_queue: Queue, websocket_queue: Queue, cam: CameraInterface, shape_detector: ShapeDetector,
-                 fps: int):
+                 settings):
         Process.__init__(self, daemon=True)
         self.detector = shape_detector
         self.cam = cam
-        self.fps = fps
+        self.settings = settings
         self.__shape_queue = shape_queue
         self.__ws_queue = websocket_queue
         self.__frame_count = 0
@@ -38,7 +34,7 @@ class ShapeDetectorProcess(Process):
 
         self.cam.connect()
 
-        frame_period = 1.0 / self.fps
+        frame_period = 1.0 / self.settings.processing.fps
 
         while True:
             try:
@@ -57,7 +53,7 @@ class ShapeDetectorProcess(Process):
 
                 self.__frame_count += 1
 
-                image = downscale(image, DOWNSCALE_WIDTH, DOWNSCALE_HEIGHT)
+                image = downscale(image, self.settings.processing.downscale_width, self.settings.processing.downscale_height)
                 context = DetectionContext(image=image)
                 context = self.detector.detect(context)
 

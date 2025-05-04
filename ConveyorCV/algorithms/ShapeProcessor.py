@@ -5,7 +5,6 @@ import cv2
 import numpy as np
 
 from model.model import DetectionContext
-from utils.env import *
 
 
 class ShapeProcessor:

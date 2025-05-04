@@ -88,7 +88,7 @@
                         <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,5">
                             <StackPanel>
                                 <TextBlock Text="Масштабирование" FontWeight="Bold" Margin="0,0,0,10" />
-                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,5">
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,5">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Ширина:" Margin="0,0,10,0"
                                                VerticalAlignment="Center" />
                                     <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DownscaleWidth}"
@@ -97,7 +97,12 @@
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Высота:" Margin="0,0,10,0"
                                                VerticalAlignment="Center" />
                                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DownscaleHeight}"
-                                             Watermark="Высота обработки" />
+                                             Watermark="Высота обработки" Margin="0,0,0,5"/>
+                                    
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Частота обработки:" Margin="0,0,10,0"
+                                               VerticalAlignment="Center" />
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Fps}"
+                                             Watermark="Частота обработки" />
                                 </Grid>
                             </StackPanel>
                         </Border>
