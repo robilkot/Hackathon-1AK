@@ -325,6 +325,15 @@ def get_app_settings():
     settings = get_settings()
     return settings.to_dict()
 
+@app.get("/validation/stats")
+def get_validation_statistics(
+    start_date: Optional[datetime.datetime] = None,
+    end_date: Optional[datetime.datetime] = None
+):
+    """Get validation statistics for a given time period"""
+    from backend.db import get_validation_stats
+    return get_validation_stats(start_date, end_date)
+
 @router.post("/apply")
 def apply_settings(settings_data: dict, background_tasks: BackgroundTasks):
     """Update settings and restart processes to apply them"""

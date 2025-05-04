@@ -67,3 +67,28 @@ def delete_all_validation_logs():
         return {"success": True, "message": f"{count} logs deleted successfully"}
     finally:
         db.close()
+
+
+def get_validation_stats(start_date=None, end_date=None):
+    """Get validation statistics for a given time period"""
+    db = get_db_session()
+    try:
+        query = db.query(ValidationLog)
+
+        if start_date:
+            query = query.filter(ValidationLog.timestamp >= start_date)
+        if end_date:
+            query = query.filter(ValidationLog.timestamp <= end_date)
+
+        total_count = query.count()
+        missing_sticker_count = query.filter(ValidationLog.sticker_present == False).count()
+        incorrect_design_count = query.filter(ValidationLog.sticker_present == True,
+                                              ValidationLog.sticker_matches_design == False).count()
+
+        return {
+            "TotalCount": total_count,
+            "MissingStickerCount": missing_sticker_count,
+            "IncorrectDesignCount": incorrect_design_count
+        }
+    finally:
+        db.close()
