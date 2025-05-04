@@ -230,7 +230,7 @@ async def stream_images_async():
         current_time = datetime.datetime.now()
         if current_time - last_time > datetime.timedelta(seconds=5):
             last_time = current_time
-            logger.info(f'shape: {shape_queue.qsize()}, processed_shape: {processed_shape_queue.qsize()}, results: {results_queue.qsize()}, ws: {websocket_queue.qsize()}')
+            #logger.info(f'shape: {shape_queue.qsize()}, processed_shape: {processed_shape_queue.qsize()}, results: {results_queue.qsize()}, ws: {websocket_queue.qsize()}')
 
 
 def start_processes(background_tasks: BackgroundTasks):
@@ -329,18 +329,22 @@ def get_app_settings():
 def apply_settings(settings_data: dict, background_tasks: BackgroundTasks):
     """Update settings and restart processes to apply them"""
     try:
+        logger.info(f"new settings: {settings_data}")
         new_settings = Settings.from_dict(settings_data)
+        logger.info(f"settings updated: {new_settings}")
         save_settings(new_settings)
         system_running = any(process.is_alive() for process in processes)
 
         if system_running:
             result = restart_processes(background_tasks)
+            logger.info(f"Settings applied and processes restarted")
             return {"success": True, "message": "Settings applied and processes restarted"}
         else:
+            logger.info(f"Settings applied (system not running, no restart needed)")
             return {"success": True, "message": "Settings applied (system not running, no restart needed)"}
     except Exception as e:
+        logger.error(f"Failed to apply settings: {str(e)}", exc_info=True)
         return {"success": False, "message": f"Failed to apply settings: {str(e)}"}
-
 
 
 @app.get("/example", response_class=HTMLResponse)
@@ -500,7 +504,7 @@ def get_example_html():
                 <label>Y: <input type="number" id="centerY" step="1" min="0"></label>
             </div>
         </div>
-        
+
         <div class="param-group">
             <h3>Acc Size</h3>
             <div class="form-row">
@@ -508,7 +512,7 @@ def get_example_html():
                 <label>Height: <input type="number" id="accHeight" step="1"></label>
             </div>
         </div>
-        
+
         <div class="param-group">
             <h3>Sticker Size</h3>
             <div class="form-row">
@@ -516,14 +520,14 @@ def get_example_html():
                 <label>Height: <input type="number" id="stickerHeight" step="0.1"></label>
             </div>
         </div>
-        
+
         <div class="param-group">
             <h3>Sticker Rotation</h3>
             <div class="form-row">
                 <label>Angle (degrees): <input type="number" id="stickerRotation" step="0.1"></label>
             </div>
         </div>
-        
+
         <div class="param-group">
             <h3>Sticker Design</h3>
             <div class="design-preview">
@@ -531,7 +535,7 @@ def get_example_html():
             </div>
             <input type="file" id="stickerDesignUpload" accept="image/*">
         </div>
-        
+
         <div class="action-buttons">
             <button id="loadParamsBtn">Load Current Parameters</button>
             <button id="saveParamsBtn">Save Parameters</button>
@@ -620,7 +624,7 @@ def get_example_html():
         margin-top: 15px;
     }
 </style>
-    
+
     <script>
         const host = window.location.host;
         let ws = null;
@@ -654,7 +658,7 @@ def get_example_html():
 
             ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
-            
+
             // Process different message types
             if (data.type === 1) { // RAW
                 document.getElementById('rawStream').src = 'data:image/jpeg;base64,' + JSON.parse(data.content).image;
@@ -675,13 +679,13 @@ def get_example_html():
             const statusElement = document.getElementById('validationStatus');
             statusElement.textContent = getStatusText(result);
             statusElement.className = 'validation-status ' + getStatusClass(result);
-            
+
             // Update table values
             document.getElementById('seqNumber').textContent = result.SeqNumber;
             document.getElementById('detectionTime').textContent = new Date(result.Timestamp).toLocaleString();
             document.getElementById('stickerPresent').textContent = result.StickerPresent;
             document.getElementById('stickerMatches').textContent = result.StickerMatchesDesign !== null ? result.StickerMatchesDesign : 'N/A';
-            
+
             // Update position, size, rotation
             if (result.StickerPosition) {
                 document.getElementById('stickerPosition').textContent = 
@@ -689,17 +693,17 @@ def get_example_html():
             } else {
                 document.getElementById('stickerPosition').textContent = 'N/A';
             }
-            
+
             if (result.StickerSize) {
                 document.getElementById('stickerSize').textContent = 
                     `W: ${result.StickerSize.Width.toFixed(1)}, H: ${result.StickerSize.Height.toFixed(1)}`;
             } else {
                 document.getElementById('stickerSize').textContent = 'N/A';
             }
-            
+
             document.getElementById('stickerRotation').textContent = 
                 result.StickerRotation !== null ? `${result.StickerRotation.toFixed(1)}°` : 'N/A';
-            
+
             // Update image
             const imgElement = document.getElementById('validationImage');
             if (result.Image) {
@@ -709,7 +713,7 @@ def get_example_html():
                 imgElement.style.display = 'none';
             }
         }
-        
+
         function getStatusText(result) {
             if (!result.StickerPresent) {
                 return 'NO STICKER';
@@ -721,7 +725,7 @@ def get_example_html():
                 return 'UNKNOWN';
             }
         }
-        
+
         function getStatusClass(result) {
             if (!result.StickerPresent) {
                 return 'status-warning';
@@ -825,19 +829,19 @@ def get_example_html():
 
                 data.Logs.forEach(log => {
                 const row = document.createElement('tr');
-            
+
                 // Format position and size if available
                 const Position = log.StickerPosition 
                     ? `X: ${log.StickerPosition.x.toFixed(1)}, Y: ${log.StickerPosition.y.toFixed(1)}` 
                     : 'N/A';
-            
+
                 const Size = log.StickerSize 
                     ? `W: ${log.StickerSize.width.toFixed(1)}, H: ${log.StickerSize.height.toFixed(1)}` 
                     : 'N/A';
-            
+
                 // Format Timestamp
                 const Timestamp = new Date(log.Timestamp).toLocaleString();  // Fixed variable declaration
-            
+
                 row.innerHTML = `
                     <td>${log.Id}</td>
                     <td>${Timestamp}</td>
@@ -848,7 +852,7 @@ def get_example_html():
                     <td>${Size}</td>
                     <td>${log.StickerRotation !== null ? log.StickerRotation.toFixed(1) + '°' : 'N/A'}</td>
                 `;
-            
+
                 tbody.appendChild(row);
             });
                 addEvent(`Fetched ${data.logs.length} logs (page ${data.page}/${data.pages})`);
@@ -861,88 +865,90 @@ def get_example_html():
     document.getElementById('saveParamsBtn').addEventListener('click', saveParameters);
     document.getElementById('stickerDesignUpload').addEventListener('change', handleDesignUpload);
     async function loadAppSettings() {
-    try {
-      const res = await fetch('/settings/');
-      const cfg = await res.json();
-      
-      // Camera settings
-      document.getElementById('cameraType').value = cfg.camera_type || 'video';
-      document.getElementById('cameraIp').value = cfg.camera.phone_ip;
-      document.getElementById('cameraPort').value = cfg.camera.port;
-      document.getElementById('videoPath').value = cfg.camera.video_path;
-      
-      // Detection settings
-      document.getElementById('detBorderLeft').value = cfg.detection.detection_border_left;
-      document.getElementById('detBorderRight').value = cfg.detection.detection_border_right;
-      document.getElementById('detLineHeight').value = cfg.detection.detection_line_height;
-      
-      // Processing settings
-      document.getElementById('procWidth').value = cfg.processing.downscale_width;
-      document.getElementById('procHeight').value = cfg.processing.downscale_height;
-      document.getElementById('bgPhotoPath').value = cfg.bg_photo_path || '';
-      
-      // Validation settings
-      document.getElementById('valPosTol').value = cfg.validation.position_tolerance_percent;
-      document.getElementById('valRotTol').value = cfg.validation.rotation_tolerance_degrees;
-      document.getElementById('valSizeTol').value = cfg.validation.size_ratio_tolerance;
-      
-      // File paths
-      document.getElementById('dbUrl').value = cfg.database_url;
-      document.getElementById('stickerParamsFile').value = cfg.sticker_params_file;
-      document.getElementById('stickerDesignPath').value = cfg.sticker_design_path;
-      document.getElementById('stickerOutputPath').value = cfg.sticker_output_path;
-      
-      addEvent('App settings loaded');
-    } catch (e) {
-      console.error(e);
-      addEvent('Error loading app settings: ' + e.message);
-    }
-  }
+            try {
+                const res = await fetch('/settings/');
+                const cfg = await res.json();
+
+                // Camera settings - updated for PascalCase format
+                document.getElementById('cameraType').value = cfg.CameraType || 'video';
+                document.getElementById('cameraIp').value = cfg.Camera.PhoneIp;
+                document.getElementById('cameraPort').value = cfg.Camera.Port;
+                document.getElementById('videoPath').value = cfg.Camera.VideoPath;
+
+                // Detection settings - updated for PascalCase format
+                document.getElementById('detBorderLeft').value = cfg.Detection.DetectionBorderLeft;
+                document.getElementById('detBorderRight').value = cfg.Detection.DetectionBorderRight;
+                document.getElementById('detLineHeight').value = cfg.Detection.DetectionLineHeight;
+
+                // Processing settings - updated for PascalCase format
+                document.getElementById('procWidth').value = cfg.Processing.DownscaleWidth;
+                document.getElementById('procHeight').value = cfg.Processing.DownscaleHeight;
+                document.getElementById('bgPhotoPath').value = cfg.BgPhotoPath || '';
+
+                // Validation settings - updated for PascalCase format
+                document.getElementById('valPosTol').value = cfg.Validation.PositionTolerancePercent;
+                document.getElementById('valRotTol').value = cfg.Validation.RotationToleranceDegrees;
+                document.getElementById('valSizeTol').value = cfg.Validation.SizeRatioTolerance;
+
+                // File paths - updated for PascalCase format
+                document.getElementById('dbUrl').value = cfg.DatabaseUrl;
+                document.getElementById('stickerParamsFile').value = cfg.StickerParamsFile;
+                document.getElementById('stickerDesignPath').value = cfg.StickerDesignPath;
+                document.getElementById('stickerOutputPath').value = cfg.StickerOutputPath;
+
+                addEvent('App settings loaded');
+            } catch (e) {
+                console.error(e);
+                addEvent('Error loading app settings: ' + e.message);
+            }
+        }
 
   async function saveAppSettings() {
-    try {
-      const payload = {
-        camera_type: document.getElementById('cameraType').value,
-        bg_photo_path: document.getElementById('bgPhotoPath').value,
-        database_url: document.getElementById('dbUrl').value,
-        sticker_params_file: document.getElementById('stickerParamsFile').value,
-        sticker_design_path: document.getElementById('stickerDesignPath').value,
-        sticker_output_path: document.getElementById('stickerOutputPath').value,
-        detection: {
-          detection_border_left: parseFloat(document.getElementById('detBorderLeft').value),
-          detection_border_right: parseFloat(document.getElementById('detBorderRight').value),
-          detection_line_height: parseFloat(document.getElementById('detLineHeight').value)
-        },
-        processing: {
-          downscale_width: parseInt(document.getElementById('procWidth').value),
-          downscale_height: parseInt(document.getElementById('procHeight').value)
-        },
-        validation: {
-          position_tolerance_percent: parseFloat(document.getElementById('valPosTol').value),
-          rotation_tolerance_degrees: parseFloat(document.getElementById('valRotTol').value),
-          size_ratio_tolerance: parseFloat(document.getElementById('valSizeTol').value)
-        },
-        camera: {
-          phone_ip: document.getElementById('cameraIp').value,
-          port: parseInt(document.getElementById('cameraPort').value),
-          video_path: document.getElementById('videoPath').value
+            try {
+                const payload = {
+                    // Using PascalCase for compatibility with from_dict
+                    CameraType: document.getElementById('cameraType').value,
+                    BgPhotoPath: document.getElementById('bgPhotoPath').value,
+                    DatabaseUrl: document.getElementById('dbUrl').value,
+                    StickerParamsFile: document.getElementById('stickerParamsFile').value,
+                    StickerDesignPath: document.getElementById('stickerDesignPath').value,
+                    StickerOutputPath: document.getElementById('stickerOutputPath').value,
+                    Detection: {
+                        DetectionBorderLeft: parseFloat(document.getElementById('detBorderLeft').value),
+                        DetectionBorderRight: parseFloat(document.getElementById('detBorderRight').value),
+                        DetectionLineHeight: parseFloat(document.getElementById('detLineHeight').value)
+                    },
+                    Processing: {
+                        DownscaleWidth: parseInt(document.getElementById('procWidth').value),
+                        DownscaleHeight: parseInt(document.getElementById('procHeight').value)
+                    },
+                    Validation: {
+                        PositionTolerancePercent: parseFloat(document.getElementById('valPosTol').value),
+                        RotationToleranceDegrees: parseFloat(document.getElementById('valRotTol').value),
+                        SizeRatioTolerance: parseFloat(document.getElementById('valSizeTol').value)
+                    },
+                    Camera: {
+                        PhoneIp: document.getElementById('cameraIp').value,
+                        Port: parseInt(document.getElementById('cameraPort').value),
+                        VideoPath: document.getElementById('videoPath').value
+                    }
+                };
+
+                const res = await fetch('/settings/apply', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                addEvent('App settings saved: ' + JSON.stringify(result));
+                return result;
+            } catch (e) {
+                console.error(e);
+                addEvent('Error saving app settings: ' + e.message);
+                return { success: false, message: e.message };
+            }
         }
-      };
-      
-      const res = await fetch('/settings/apply', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      });
-      const result = await res.json();
-      addEvent('App settings saved: ' + JSON.stringify(result));
-      return result;
-    } catch (e) {
-      console.error(e);
-      addEvent('Error saving app settings: ' + e.message);
-      return { success: false, message: e.message };
-    }
-  }
+
 
   document.getElementById('loadAppSettingsBtn').addEventListener('click', loadAppSettings);
   document.getElementById('saveAppSettingsBtn').addEventListener('click', saveAppSettings);
@@ -962,12 +968,12 @@ def get_example_html():
   // Auto-load settings on page load
   document.addEventListener('DOMContentLoaded', loadAppSettings);
     let currentDesignImage = null;
-    
+
     async function loadParameters() {
         try {
             const response = await fetch('/sticker/parameters');
             const params = await response.json();
-            
+
             // Fill in form fields
             document.getElementById('centerX').value = params.StickerCenter.X;
             document.getElementById('centerY').value = params.StickerCenter.Y;
@@ -976,24 +982,24 @@ def get_example_html():
             document.getElementById('stickerWidth').value = params.StickerSize.Width;
             document.getElementById('stickerHeight').value = params.StickerSize.Height;
             document.getElementById('stickerRotation').value = params.StickerRotation;
-            
+
             // Display sticker design
             if (params.StickerDesign) {
                 document.getElementById('stickerDesign').src = 'data:image/png;base64,' + params.StickerDesign;
                 currentDesignImage = params.StickerDesign;
             }
-            
+
             addEvent('Parameters loaded successfully');
         } catch (e) {
             console.error('Error loading parameters:', e);
             addEvent(`Error loading parameters: ${e.message}`);
         }
     }
-    
+
     function handleDesignUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
         reader.onload = (e) => {
             // Display the image
@@ -1003,7 +1009,7 @@ def get_example_html():
         };
         reader.readAsDataURL(file);
     }
-    
+
     async function saveParameters() {
         try {
             const params = {
@@ -1022,7 +1028,7 @@ def get_example_html():
                 },
                 StickerRotation: parseFloat(document.getElementById('stickerRotation').value)
             };
-            
+
             const response = await fetch('/sticker/parameters', {
                 method: 'POST',
                 headers: {
@@ -1030,7 +1036,7 @@ def get_example_html():
                 },
                 body: JSON.stringify(params)
             });
-            
+
             const result = await response.json();
             addEvent(`Parameters saved: ${JSON.stringify(result)}`);
         } catch (e) {
@@ -1038,7 +1044,7 @@ def get_example_html():
             addEvent(`Error saving parameters: ${e.message}`);
         }
     }
-    
+
     // Load parameters on page load
     document.addEventListener('DOMContentLoaded', loadParameters);
     </script>

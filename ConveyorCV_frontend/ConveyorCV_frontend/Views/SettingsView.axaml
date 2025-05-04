@@ -11,6 +11,10 @@
     x:Class="ConveyorCV_frontend.Views.SettingsView"
     x:DataType="vm:SettingsViewModel">
 
+    <Design.DataContext>
+        <vm:SettingsViewModel />
+    </Design.DataContext>
+    
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         <TextBlock Grid.Row="0" Text="Настройки" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
 
