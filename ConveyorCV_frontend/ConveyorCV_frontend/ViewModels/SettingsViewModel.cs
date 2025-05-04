@@ -101,6 +101,13 @@ namespace ConveyorCV_frontend.ViewModels
             get => _detectionLineHeight;
             set => this.RaiseAndSetIfChanged(ref _detectionLineHeight, value);
         }
+        
+        private string _settingsFilePath = "";
+        public string SettingsFilePath
+        {
+            get => _settingsFilePath;
+            set => this.RaiseAndSetIfChanged(ref _settingsFilePath, value);
+        }
 
         // File paths
         private string _bgPhotoPath = "";
@@ -143,6 +150,7 @@ namespace ConveyorCV_frontend.ViewModels
         public ReactiveCommand<Unit, Unit> SaveSettingsCommand { get; }
         public ReactiveCommand<Unit, Unit> SelectVideoPathCommand { get; }
         public ReactiveCommand<Unit, Unit> SelectBgPhotoPathCommand { get; }
+        public ReactiveCommand<Unit, Unit> SelectSettingsFilePathCommand { get; }
 
         public SettingsViewModel()
         {
@@ -154,7 +162,8 @@ namespace ConveyorCV_frontend.ViewModels
             SaveSettingsCommand = ReactiveCommand.CreateFromTask(SaveSettings);
             SelectVideoPathCommand = ReactiveCommand.CreateFromTask(SelectVideoPath);
             SelectBgPhotoPathCommand = ReactiveCommand.CreateFromTask(SelectBgPhotoPath);
-
+            SelectSettingsFilePathCommand = ReactiveCommand.CreateFromTask(SelectSettingsFilePath);
+            
             // Load settings when view model is created
             _ = LoadSettings();
         }
@@ -170,7 +179,8 @@ namespace ConveyorCV_frontend.ViewModels
                 StickerParamsFile = settings.StickerParamsFile ?? "";
                 StickerDesignPath = settings.StickerDesignPath ?? "";
                 StickerOutputPath = settings.StickerOutputPath ?? "";
-
+                SettingsFilePath = settings.SettingsFilePath ?? "";
+                
                 if (settings.Camera != null)
                 {
                     PhoneIp = settings.Camera.PhoneIp ?? "";
@@ -209,7 +219,7 @@ namespace ConveyorCV_frontend.ViewModels
                 StickerParamsFile,
                 StickerDesignPath,
                 StickerOutputPath,
-                null,
+                SettingsFilePath,
                 new ProcessingSettingsDTO(
                     DownscaleWidth,
                     DownscaleHeight
@@ -249,6 +259,14 @@ namespace ConveyorCV_frontend.ViewModels
             if (!string.IsNullOrEmpty(result))
             {
                 BgPhotoPath = result;
+            }
+        }
+        private async Task SelectSettingsFilePath()
+        {
+            var result = await DialogService.ShowOpenFileDialog("Выбор файла настроек", "");
+            if (!string.IsNullOrEmpty(result))
+            {
+                SettingsFilePath = result;
             }
         }
     }

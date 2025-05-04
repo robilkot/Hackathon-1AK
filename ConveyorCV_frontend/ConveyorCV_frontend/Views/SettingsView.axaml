@@ -17,6 +17,7 @@
         <controls:NotificationMessageContainer
             Grid.RowSpan="3"
             Manager="{Binding Manager}"
+
             Margin="0,0,20,0"
             ZIndex="1000" />
 
@@ -139,6 +140,13 @@
                         <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,5">
                             <StackPanel>
                                 <TextBlock Text="Пути к файлам" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,5">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto">
+                                        <TextBlock Grid.Column="0" Text="Файл настроек:" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                        <TextBox Grid.Column="1" Text="{Binding SettingsFilePath}" Watermark="Путь к файлу настроек" IsReadOnly="True"/>
+                                        <Button Grid.Column="2" Content="Выбрать" Command="{Binding SelectSettingsFilePathCommand}" Margin="10,0,0,0"/>
+                                    </Grid>
+                                </Border>
                                 <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,5">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Фоновое изображение:" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                     <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding BgPhotoPath}" Watermark="Выберите фоновое изображение" Margin="0,0,0,5"/>

@@ -34,8 +34,9 @@ namespace ConveyorCV_frontend.Services
                 response.EnsureSuccessStatusCode();
                 
                 var json = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Json: {json}");
                 var settings = JsonSerializer.Deserialize<SettingsDTO>(json, _jsonOptions);
-                
+                Console.WriteLine($"Settings: {settings}");
                 StatusChanged?.Invoke("Настройки успешно загружены");
                 return settings;
             }
@@ -51,6 +52,7 @@ namespace ConveyorCV_frontend.Services
             try
             {
                 var json = JsonSerializer.Serialize(settings, _jsonOptions);
+                Console.WriteLine("Json: {0}", json);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 
                 var response = await _httpClient.PostAsync($"http://{_baseUrl}/settings/apply", content);

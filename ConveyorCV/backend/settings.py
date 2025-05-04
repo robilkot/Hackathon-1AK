@@ -50,80 +50,92 @@ class Settings(BaseModel):
     def to_dict(self) -> dict:
         """Convert settings to dictionary format"""
         return {
-            "database_url": self.database_url,
-            "sticker_params_file": self.sticker_params_file,
-            "sticker_design_path": self.sticker_design_path,
-            "sticker_output_path": self.sticker_output_path,
-            "validation": {
-                "position_tolerance_percent": self.validation.position_tolerance_percent,
-                "rotation_tolerance_degrees": self.validation.rotation_tolerance_degrees,
-                "size_ratio_tolerance": self.validation.size_ratio_tolerance
+            "DatabaseUrl": self.database_url,
+            "StickerParamsFile": self.sticker_params_file,
+            "StickerDesignPath": self.sticker_design_path,
+            "StickerOutputPath": self.sticker_output_path,
+            "CameraType": self.camera_type,
+            "BgPhotoPath": self.bg_photo_path,
+            "SettingsFilePath": self.settings_file_path,
+            "Validation": {
+                "PositionTolerancePercent": self.validation.position_tolerance_percent,
+                "RotationToleranceDegrees": self.validation.rotation_tolerance_degrees,
+                "SizeRatioTolerance": self.validation.size_ratio_tolerance
             },
-            "detection": {
-                "detection_border_left": self.detection.detection_border_left,
-                "detection_border_right": self.detection.detection_border_right,
-                "detection_line_height": self.detection.detection_line_height
+            "Detection": {
+                "DetectionBorderLeft": self.detection.detection_border_left,
+                "DetectionBorderRight": self.detection.detection_border_right,
+                "DetectionLineHeight": self.detection.detection_line_height
             },
-            "processing": {
-                "downscale_width": self.processing.downscale_width,
-                "downscale_height": self.processing.downscale_height
+            "Processing": {
+                "DownscaleWidth": self.processing.downscale_width,
+                "DownscaleHeight": self.processing.downscale_height
             },
-            "camera": {
-                "phone_ip": self.camera.phone_ip,
-                "port": self.camera.port,
-                "video_path": self.camera.video_path
+            "Camera": {
+                "PhoneIp": self.camera.phone_ip,
+                "Port": self.camera.port,
+                "VideoPath": self.camera.video_path
             }
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Settings":
         """Create Settings object from dictionary data"""
-        validation_data = data.pop("validation", {})
-        detection_data = data.pop("detection", {})
-        processing_data = data.pop("processing", {})
-        camera_data = data.pop("camera", {})
+        settings_data = {
+            "database_url": data.get("DatabaseUrl", "sqlite:///./data/validation_logs.db"),
+            "sticker_params_file": data.get("StickerParamsFile", "data/sticker_params.json"),
+            "sticker_design_path": data.get("StickerDesignPath", "data/sticker_fixed.png"),
+            "sticker_output_path": data.get("StickerOutputPath", "data/sticker_design.png"),
+            "camera_type": data.get("CameraType", "video"),
+            "bg_photo_path": data.get("BgPhotoPath", "data/frame_empty.png"),
+            "settings_file_path": data.get("SettingsFilePath", "data/settings.json")
+        }
 
-        instance = cls(**data)
+        instance = cls(**settings_data)
 
+        validation_data = data.get("Validation", {})
         if validation_data:
             instance.validation.position_tolerance_percent = validation_data.get(
-                "position_tolerance_percent", instance.validation.position_tolerance_percent
+                "PositionTolerancePercent", instance.validation.position_tolerance_percent
             )
             instance.validation.rotation_tolerance_degrees = validation_data.get(
-                "rotation_tolerance_degrees", instance.validation.rotation_tolerance_degrees
+                "RotationToleranceDegrees", instance.validation.rotation_tolerance_degrees
             )
             instance.validation.size_ratio_tolerance = validation_data.get(
-                "size_ratio_tolerance", instance.validation.size_ratio_tolerance
+                "SizeRatioTolerance", instance.validation.size_ratio_tolerance
             )
 
+        detection_data = data.get("Detection", {})
         if detection_data:
             instance.detection.detection_border_left = detection_data.get(
-                "detection_border_left", instance.detection.detection_border_left
+                "DetectionBorderLeft", instance.detection.detection_border_left
             )
             instance.detection.detection_border_right = detection_data.get(
-                "detection_border_right", instance.detection.detection_border_right
+                "DetectionBorderRight", instance.detection.detection_border_right
             )
             instance.detection.detection_line_height = detection_data.get(
-                "detection_line_height", instance.detection.detection_line_height
+                "DetectionLineHeight", instance.detection.detection_line_height
             )
 
+        processing_data = data.get("Processing", {})
         if processing_data:
             instance.processing.downscale_width = processing_data.get(
-                "downscale_width", instance.processing.downscale_width
+                "DownscaleWidth", instance.processing.downscale_width
             )
             instance.processing.downscale_height = processing_data.get(
-                "downscale_height", instance.processing.downscale_height
+                "DownscaleHeight", instance.processing.downscale_height
             )
 
+        camera_data = data.get("Camera", {})
         if camera_data:
             instance.camera.phone_ip = camera_data.get(
-                "phone_ip", instance.camera.phone_ip
+                "PhoneIp", instance.camera.phone_ip
             )
             instance.camera.port = camera_data.get(
-                "port", instance.camera.port
+                "Port", instance.camera.port
             )
             instance.camera.video_path = camera_data.get(
-                "video_path", instance.camera.video_path
+                "VideoPath", instance.camera.video_path
             )
 
         return instance
