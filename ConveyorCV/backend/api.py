@@ -210,6 +210,8 @@ async def stream_images_async():
     logger.info(f"stream_images starting")
     last_time = datetime.datetime.now()
 
+    from utils.env import OS_TYPE
+
     while True:
         try:
             msg: StreamingMessage = websocket_queue.get_nowait()
@@ -231,6 +233,9 @@ async def stream_images_async():
         if current_time - last_time > datetime.timedelta(seconds=5):
             last_time = current_time
             #logger.info(f'shape: {shape_queue.qsize()}, processed_shape: {processed_shape_queue.qsize()}, results: {results_queue.qsize()}, ws: {websocket_queue.qsize()}')
+
+        if OS_TYPE == "MACOS":
+            await asyncio.sleep(0.016)
 
 
 def start_processes(background_tasks: BackgroundTasks):
