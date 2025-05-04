@@ -55,4 +55,40 @@ namespace ConveyorCV_frontend.Models
         IEnumerable<ValidationLogItemDTO> Logs
     );
     
+    public record CameraSettingsDTO(
+        string? PhoneIp,
+        int? Port,
+        string? VideoPath
+    );
+
+    public record ProcessingSettingsDTO(
+        int? DownscaleWidth,
+        int? DownscaleHeight
+    );
+
+    public record ValidationSettingsDTO(
+        float? PositionTolerancePercent,
+        float? RotationToleranceDegrees,
+        float? SizeRatioTolerance
+    );
+
+    public record DetectionSettingsDTO(
+        float? DetectionBorderLeft,
+        float? DetectionBorderRight,
+        float? DetectionLineHeight
+    );
+
+    public record SettingsDTO(
+        string? CameraType,
+        string? BgPhotoPath,
+        string? DatabaseUrl,
+        string? StickerParamsFile,
+        string? StickerDesignPath,
+        string? StickerOutputPath,
+        string? SettingsFilePath,
+        ProcessingSettingsDTO? Processing,
+        CameraSettingsDTO? Camera,
+        ValidationSettingsDTO? Validation,
+        DetectionSettingsDTO? Detection
+    );
 }
