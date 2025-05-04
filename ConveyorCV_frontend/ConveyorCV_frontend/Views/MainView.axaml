@@ -9,7 +9,7 @@
     xmlns:global="clr-namespace:"
     xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters"
     xmlns:controls="clr-namespace:Avalonia.Notification.Controls;assembly=Notification.Avalonia"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
     x:Class="ConveyorCV_frontend.Views.MainView"
     x:DataType="global:MainViewModel">
 	<Design.DataContext>
@@ -30,7 +30,7 @@
 			Background="White"
 			Margin="5"
 			ZIndex="2"
-			HorizontalAlignment="Left" 
+			HorizontalAlignment="Right" 
 			VerticalAlignment="Top">
 			<MenuItem
 				Header="Журнал работы"
@@ -45,45 +45,83 @@
 
 			<Panel
 				Background="Black">
-				<Border
-					ZIndex="2"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Bottom"
-					Background="White"
-					Padding="2"
-					Margin="0 0 0 5"
-					CornerRadius="5">
-					<StackPanel
-						ZIndex="1"
-						Spacing="5"
-						Orientation="Horizontal">
-						<TextBlock
-							Margin="10 0"
-							HorizontalAlignment="Center"
-							VerticalAlignment="Center"
-							FontSize="20"
-							Text="{Binding Status, Converter={StaticResource StreamStatusToTextConverter}}"/>
-
-						<Button
-							Width="200"
-							HorizontalContentAlignment="Center"
-							Content="Начать трансляцию"
-							Command="{Binding StartStreamCommand}"/>
-						<Button
-							Width="200"
-							HorizontalContentAlignment="Center"
-							Content="Остановить трансляцию"
-							Command="{Binding StopStreamCommand}"/>
-					</StackPanel>
-				</Border>
-				<Image
-					ZIndex="0"
-					Grid.Row="0"
+				<Panel
 					IsVisible="{Binding Status, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:StreamStatus.Running}}"
 					VerticalAlignment="Stretch"
 					HorizontalAlignment="Stretch"
-					Stretch="Uniform"
-					Source="{Binding RawImage}"/>
+					ZIndex="0"
+					Grid.Row="0">
+					<Image
+						Stretch="Uniform"
+						Source="{Binding RawImage}"/>
+					<Image
+						IsVisible="{Binding #showDetectionsCheckBox.IsChecked}"
+						Stretch="Uniform"
+						Source="{Binding ShapeImage}"
+						Opacity="0.8"
+						BlendMode="Multiply"/>
+				</Panel>
+				<Expander
+					ZIndex="3"
+					IsExpanded="True"
+					VerticalAlignment="Top"
+					HorizontalAlignment="Left"
+					Classes="container">
+					<Expander.Header>
+						<TextBlock
+							Grid.Column="0"
+							VerticalAlignment="Center"
+							HorizontalAlignment="Left"
+							FontSize="20"
+							Text="Трансляция конвейера"/>
+					</Expander.Header>
+					<StackPanel
+						Spacing="10">
+
+						<TextBlock
+							Margin="10 0"
+							HorizontalAlignment="Center"
+							FontSize="20"
+							Text="{Binding Status, Converter={StaticResource StreamStatusToTextConverter}}"/>
+						
+						<Grid
+							ColumnDefinitions="*,4,*">
+							<Button
+								Grid.Column="0"
+								HorizontalAlignment="Stretch"
+								HorizontalContentAlignment="Center"
+								Content="Начать"
+								Command="{Binding StartStreamCommand}"/>
+							<Button
+								Grid.Column="2"
+								HorizontalAlignment="Stretch"
+								HorizontalContentAlignment="Center"
+								Content="Остановить"
+								Command="{Binding StopStreamCommand}"/>
+						</Grid>
+
+						<Grid
+							ColumnDefinitions="*, auto">
+							<TextBlock
+								Grid.Column="0"
+								VerticalAlignment="Center"
+								Text="Показ обнаруженных контуров: "/>
+							<CheckBox
+								x:Name="showDetectionsCheckBox"
+								Grid.Column="1"/>
+						</Grid>
+
+						<Button
+							Grid.Column="0"
+							HorizontalAlignment="Stretch"
+							HorizontalContentAlignment="Center">
+							<ToolTip.Tip>
+								Качественное фото конвейера без объектов на нём обеспечивает точное обнаружение аккумуляторов
+							</ToolTip.Tip>
+							Сохранить фото пустого конвейера
+						</Button>
+					</StackPanel>
+				</Expander>
 			</Panel>
 			
             <GridSplitter

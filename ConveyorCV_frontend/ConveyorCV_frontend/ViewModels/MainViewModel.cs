@@ -39,6 +39,12 @@ public class MainViewModel : ViewModelBase
         get => _rawImage;
         private set => this.RaiseAndSetIfChanged(ref _rawImage, value);
     }
+    private Bitmap _shapeImage;
+    public Bitmap ShapeImage
+    {
+        get => _shapeImage;
+        private set => this.RaiseAndSetIfChanged(ref _shapeImage, value);
+    }
 
     private StreamStatus _status = StreamStatus.Disconnected;
     public StreamStatus Status
@@ -72,14 +78,26 @@ public class MainViewModel : ViewModelBase
 
     private void _webSocketService_MessageReceived(StreamingMessage obj)
     {
-        if (obj.Type != StreamingMessageType.RAW || obj.Content is not ImageStreamingMessageContent imageContent)
-            return;
+        if(obj.Content is ImageStreamingMessageContent imageContent)
+        {
+            if (obj.Type == StreamingMessageType.RAW)
+            {
+                var bytes = imageContent.ToImageBytes();
 
-        var bytes = imageContent.ToImageBytes();
+                using var stream = new MemoryStream(bytes);
 
-        using var stream = new MemoryStream(bytes);
+                RawImage = new(stream);
+            }
+            else if(obj.Type == StreamingMessageType.SHAPE)
+            {
+                var bytes = imageContent.ToImageBytes();
 
-        RawImage = new(stream);
+                using var stream = new MemoryStream(bytes);
+
+                ShapeImage = new(stream);
+
+            }
+        }
     }
 
     private async Task StartStreamAsync()
