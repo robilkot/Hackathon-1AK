@@ -1,4 +1,6 @@
 import unittest
+from asyncio import wait_for
+
 import cv2
 import numpy as np
 
@@ -8,9 +10,7 @@ from model.model import DetectionContext, StickerValidationResult, StickerValida
 from utils.env import TEST_PRINT_EN
 
 class StickerValidatorTest(unittest.TestCase):
-    def __init__(self):
-        super().__init__()
-        self.sv = StickerValidator()
+    sv: StickerValidator = StickerValidator()
 
     @staticmethod
     def __compare_results(res1: StickerValidationResult, res2: StickerValidationResult):
@@ -128,17 +128,10 @@ class StickerValidatorTest(unittest.TestCase):
         else:
             self.assertFalse(res)
 
-    def assert_object_valid(self, obj : str = None, image: str = None, expect_true : bool = True):
+    def assert_accum(self, obj : str = None, expect_valid : bool = True, expect_present: bool = True):
 
-        if image is not None:
-            bg = cv2.imread(image)
-        else:
-            bg = cv2.imread("data/frame_empty.png")
-
-        if obj is not None:
-            accum = cv2.imread(obj)
-        else:
-            accum = cv2.imread("test/test_data/object_valid.png")
+        bg = cv2.imread("data/frame_empty_1280x720.png")
+        accum = cv2.imread(obj)
 
         self.assertFalse(bg is None)
         self.assertFalse(accum is None)
@@ -147,17 +140,42 @@ class StickerValidatorTest(unittest.TestCase):
         cx.processed_image = accum
         cx = self.sv.validate(cx)
 
-        res_empty = StickerValidationResult(False)
-        res_empty.detected_at       = cx.detected_at
-        res_empty.sticker_image     = cx.validation_results.sticker_image
-        res_empty.sticker_matches_design   = False
+        r = cx.validation_results
 
-        if expect_true:
-            self.assertFalse(self.__compare_results(res_empty, cx.validation_results))
+        if TEST_PRINT_EN:
+            print("")
+            print(obj)
+            print("")
+            print("sticker_present:", r.sticker_present)
+            print("sticker_matches_design:", r.sticker_matches_design)
+            print("sticker_rotation:", r.sticker_rotation)
+            print("sticker_size:", r.sticker_size)
+            print("sticker_position:", r.sticker_position)
+
+        if expect_present:
+            self.assertTrue(cx.validation_results.sticker_present)
+            if expect_valid:
+                self.assertTrue(cx.validation_results.sticker_matches_design)
+            else:
+                self.assertFalse(cx.validation_results.sticker_matches_design)
         else:
-            self.assertTrue(self.__compare_results(res_empty, cx.validation_results))
+            self.assertFalse(cx.validation_results.sticker_present)
 
 
 
+    def test_sticker_rotation(self):
+        self.assert_accum(obj="data/test_acc1.png")
+        self.assert_accum(obj="data/test_acc1.psd", expect_valid=False)
+        self.assert_accum(obj="data/test_acc1_3deg.png")
+        self.assert_accum(obj="data/test_acc1_5deg.png")
+        self.assert_accum(obj="data/test_acc1_10deg.png", expect_valid=False)
+
+    def test_sticker_design_invalid(self):
+        self.assert_accum(obj="data/test_acc2.png", expect_valid=False)
+
+    def test_no_sticker_present(self):
+        self.assert_accum(obj="data/test_acc3.png", expect_present=False)
 
 
+if __name__ == "__main__":
+    unittest.main()
