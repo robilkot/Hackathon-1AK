@@ -23,6 +23,7 @@ from backend.db import paginate_validation_logs, delete_validation_log_by_id, de
 from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings, Settings, save_settings
+from utils.bg_capture import capture_empty_conveyor_background
 from utils.param_persistence import save_sticker_parameters
 from websocket_manager import WebSocketManager
 
@@ -350,6 +351,17 @@ def apply_settings(settings_data: dict, background_tasks: BackgroundTasks):
     except Exception as e:
         logger.error(f"Failed to apply settings: {str(e)}", exc_info=True)
         return {"success": False, "message": f"Failed to apply settings: {str(e)}"}
+
+
+@app.post("/set-empty-conveyor")
+def set_empty_conveyor_background(background_tasks: BackgroundTasks):
+    """Capture current frame and set as empty conveyor background"""
+    result = capture_empty_conveyor_background(camera)
+
+    if result["success"]:
+        restart_processes(background_tasks)
+
+    return result
 
 
 @app.get("/example", response_class=HTMLResponse)
