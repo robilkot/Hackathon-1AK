@@ -177,7 +177,7 @@
                         <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,5">
                             <StackPanel>
                                 <TextBlock Text="Пути к файлам" FontWeight="Bold" Margin="0,0,0,10" />
-                                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                       Margin="0,5">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Файл настроек:" Margin="0,0,10,0"
                                                VerticalAlignment="Center" />
@@ -208,11 +208,6 @@
                                     <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
                                              Text="{Binding StickerOutputPath}"
                                              Watermark="Путь для сохранения результатов" Margin="0,0,0,5" />
-                                    
-                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Фоновое изображение:" Margin="0,0,10,0"
-                                               VerticalAlignment="Center" />
-                                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding BgPhotoPath}"
-                                             VerticalAlignment="Center" Watermark="Путь фонового изображения" />
                                 </Grid>
                             </StackPanel>
                         </Border>

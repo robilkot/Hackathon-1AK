@@ -20,24 +20,19 @@ def capture_empty_conveyor_background(camera):
         dict: Result with success status, message and path
     """
     try:
-        # Create directory if it doesn't exist
         os.makedirs("data", exist_ok=True)
 
-        # Generate unique filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"data/frame_empty_{timestamp}.png"
 
-        # Capture current frame from camera
         camera.connect()
         frame = camera.get_frame()
 
         if frame is None:
             return {"success": False, "message": "Failed to capture frame from camera"}
 
-        # Save the captured frame
         cv2.imwrite(filename, frame)
 
-        # Update settings with the new background path
         settings = get_settings()
         settings.bg_photo_path = filename
         save_settings(settings)
