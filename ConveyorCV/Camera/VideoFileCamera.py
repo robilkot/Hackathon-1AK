@@ -2,7 +2,6 @@ import logging
 
 import cv2
 import time
-import os
 from dotenv import load_dotenv
 
 from Camera.CameraInterface import CameraInterface
@@ -12,7 +11,7 @@ load_dotenv()
 
 class VideoFileCamera(CameraInterface):
     def __init__(self, video_path=None, fps=None, start_frame=None, start_time=None):
-        self.video_path = video_path or os.getenv("VIDEO_PATH", "default_video.mp4")
+        self.video_path = video_path
         self.video_cap = None
         self.is_connected = False
         self._last_frame_time = 0

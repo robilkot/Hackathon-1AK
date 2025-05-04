@@ -94,7 +94,7 @@ def init_processes():
     results_queue = Queue()
     websocket_queue = Queue()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 60)
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
                                                         validator)
@@ -159,7 +159,7 @@ def restart_processes(background_tasks: BackgroundTasks):
         camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
         logger.info(f"Created IPCamera: {settings.camera.phone_ip}:{settings.camera.port}")
 
-    detector = ShapeDetector()
+    detector = ShapeDetector(settings)
     processor = ShapeProcessor(settings)
     validator = StickerValidator()
     logger.info("Created new components")
@@ -170,7 +170,7 @@ def restart_processes(background_tasks: BackgroundTasks):
     results_queue = Queue()
     websocket_queue = Queue()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, 20)
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
                                                         validator)

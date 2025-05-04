@@ -14,6 +14,7 @@ class CameraSettings(BaseModel):
 class ProcessingSettings(BaseModel):
     downscale_width: int = 1280
     downscale_height: int = 720
+    fps: int = 20
 
 
 class ValidationSettings(BaseModel):
@@ -69,7 +70,8 @@ class Settings(BaseModel):
             },
             "Processing": {
                 "DownscaleWidth": self.processing.downscale_width,
-                "DownscaleHeight": self.processing.downscale_height
+                "DownscaleHeight": self.processing.downscale_height,
+                "Fps": self.processing.fps
             },
             "Camera": {
                 "PhoneIp": self.camera.phone_ip,
@@ -125,6 +127,7 @@ class Settings(BaseModel):
             instance.processing.downscale_height = processing_data.get(
                 "DownscaleHeight", instance.processing.downscale_height
             )
+            instance.processing.fps = processing_data.get("Fps", instance.processing.fps)
 
         camera_data = data.get("Camera", {})
         if camera_data:
@@ -139,6 +142,7 @@ class Settings(BaseModel):
             )
 
         return instance
+
 
 _settings: Optional[Settings] = None
 _settings_file = os.environ.get("SETTINGS_FILE", "../data/settings/app_settings.json")

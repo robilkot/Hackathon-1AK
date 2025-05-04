@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import logging
 import logging.config
 from api import app, router
 
