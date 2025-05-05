@@ -148,15 +148,9 @@ _settings: Optional[Settings] = None
 _settings_file = os.environ.get("SETTINGS_FILE", "../data/settings/app_settings.json")
 
 
-@lru_cache
 def get_settings() -> Settings:
-    """Get application settings, loading from file if available"""
-    global _settings
-
-    if _settings is None:
-        _settings = load_settings(_settings_file)
-
-    return _settings
+    """Get application settings, loading from file every time"""
+    return load_settings(_settings_file)
 
 
 def load_settings(file_path: str = _settings_file) -> Settings:
@@ -176,7 +170,6 @@ def reset_settings() -> Settings:
     """Reset settings to default values"""
     global _settings
     _settings = Settings()
-    get_settings.cache_clear()
     return _settings
 
 
@@ -190,4 +183,3 @@ def save_settings(settings: Settings) -> None:
     with open(_settings_file, 'w') as f:
         json.dump(settings.to_dict(), f, indent=2)
 
-    get_settings.cache_clear()
