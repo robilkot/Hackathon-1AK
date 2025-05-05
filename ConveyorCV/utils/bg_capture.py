@@ -1,20 +1,23 @@
-# utils/bg_capture.py
-import os
-import cv2
+# Add to utils/bg_capture.py
+import base64
+import datetime
 import logging
-from datetime import datetime
+import os
+
+import cv2
+import numpy as np
 
 from backend.settings import get_settings, save_settings
 
+
 logger = logging.getLogger(__name__)
 
-
-def capture_empty_conveyor_background(camera):
+def save_and_set_empty_conveyor_background(image_data_base64):
     """
-    Capture current frame from camera and save it as empty conveyor background
+    Save uploaded image as empty conveyor background and apply it to settings
 
     Args:
-        camera: Camera interface to capture frame from
+        image_data_base64: Base64 encoded string of image data
 
     Returns:
         dict: Result with success status, message and path
@@ -22,27 +25,29 @@ def capture_empty_conveyor_background(camera):
     try:
         os.makedirs("data", exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"data/frame_empty_{timestamp}.png"
-
-        camera.connect()
-        frame = camera.get_frame()
+        # Decode base64 string to image
+        image_data = base64.b64decode(image_data_base64)
+        image_array = np.frombuffer(image_data, np.uint8)
+        frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
         if frame is None:
-            return {"success": False, "message": "Failed to capture frame from camera"}
+            return {"success": False, "message": "Invalid image data"}
 
+        # Save image with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"data/frame_empty_{timestamp}.png"
         cv2.imwrite(filename, frame)
 
+        # Update settings
         settings = get_settings()
         settings.bg_photo_path = filename
         save_settings(settings)
 
         return {
             "success": True,
-            "message": "Empty conveyor background captured",
+            "message": "Empty conveyor background set from uploaded image",
             "path": filename
         }
-
     except Exception as e:
-        logger.error(f"Failed to capture empty conveyor background: {str(e)}")
+        logger.error(f"Failed to set empty conveyor background: {str(e)}")
         return {"success": False, "message": f"Error: {str(e)}"}

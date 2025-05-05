@@ -23,7 +23,7 @@ from backend.db import paginate_validation_logs, delete_validation_log_by_id, de
 from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings, Settings, save_settings
-from utils.bg_capture import capture_empty_conveyor_background
+from utils.bg_capture import save_and_set_empty_conveyor_background
 from utils.param_persistence import save_sticker_parameters
 from websocket_manager import WebSocketManager
 
@@ -278,6 +278,10 @@ def stop_processes():
 
         queue.put(None)
 
+    for process in processes:
+        if process.is_alive():
+            process.terminate()
+
 
 @app.websocket("/ws")
 async def websocket_connect(websocket: WebSocket):
@@ -375,15 +379,30 @@ def apply_settings(settings_data: dict, background_tasks: BackgroundTasks):
         return {"success": False, "message": f"Failed to apply settings: {str(e)}"}
 
 
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, Body
+
+
 @app.post("/set-empty-conveyor")
-def set_empty_conveyor_background(background_tasks: BackgroundTasks):
-    """Capture current frame and set as empty conveyor background"""
-    result = capture_empty_conveyor_background(camera)
+def set_empty_conveyor_background(
+        background_tasks: BackgroundTasks,
+        image_data: dict = Body(...)
+):
+    """Set uploaded image as empty conveyor background"""
+    try:
+        image_base64 = image_data.get("image")
 
-    if result["success"]:
-        restart_processes(background_tasks)
+        if not image_base64:
+            return {"success": False, "message": "No image data provided"}
 
-    return result
+        result = save_and_set_empty_conveyor_background(image_base64)
+
+        if result["success"]:
+            restart_processes(background_tasks)
+
+        return result
+    except Exception as e:
+        logger.error(f"Failed to set empty conveyor background: {str(e)}")
+        return {"success": False, "message": f"Error: {str(e)}"}
 
 
 @app.get("/example", response_class=HTMLResponse)
