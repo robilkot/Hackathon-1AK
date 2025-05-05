@@ -27,37 +27,6 @@ def scale_image(image, percent, maxwh):
     result = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
     return result, percent
 
-def click_and_crop(event, x, y, flags, param):
-    global box_points, button_down
-    if (button_down == False) and (event == cv2.EVENT_LBUTTONDOWN):
-        button_down = True
-        box_points = [(x, y)]
-    elif (button_down == True) and (event == cv2.EVENT_MOUSEMOVE):
-        image_copy = param.copy()
-        point = (x, y)
-        cv2.rectangle(image_copy, box_points[0], point, (0, 255, 0), 2)
-        cv2.imshow("Template Cropper - Press C to Crop", image_copy)
-    elif event == cv2.EVENT_LBUTTONUP:
-        button_down = False
-        box_points.append((x, y))
-        cv2.rectangle(param, box_points[0], box_points[1], (0, 255, 0), 2)
-        cv2.imshow("Template Cropper - Press C to Crop", param)
-
-# GUI template cropping tool
-def template_crop(image):
-    clone = image.copy()
-    cv2.namedWindow("Template Cropper - Press C to Crop")
-    param = image
-    cv2.setMouseCallback("Template Cropper - Press C to Crop", click_and_crop, param)
-    while True:
-        cv2.imshow("Template Cropper - Press C to Crop", image)
-        key = cv2.waitKey(1)
-        if key == ord("c"):
-            cv2.destroyAllWindows()
-            break
-    if len(box_points) == 2:
-        cropped_region = clone[box_points[0][1]:box_points[1][1], box_points[0][0]:box_points[1][0]]
-    return cropped_region
 
 def invariant_match_template(rgbimage, rgbtemplate, method, matched_thresh, rot_range, rot_interval, scale_range, scale_interval, rm_redundant, minmax, rgbdiff_thresh=float("inf")):
     """

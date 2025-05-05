@@ -21,7 +21,7 @@ class WebSocketManager:
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
 
-    async def __send_message(self, ws: WebSocket, msg):
+    async def __send_message(self, ws: WebSocket, msg: StreamingMessage):
         try:
             msg_json = json.dumps(msg, cls=DefaultJsonEncoder)
             await ws.send_bytes(msg_json)

@@ -1,3 +1,6 @@
+import logging
+import logging.config
+import os
 import unittest
 
 import cv2
@@ -7,6 +10,36 @@ from algorithms.StickerValidator import StickerValidator
 from utils.param_persistence import get_sticker_parameters
 from model.model import DetectionContext, StickerValidationResult, StickerValidationParams
 from utils.env import TEST_PRINT_EN
+
+
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(levelname)s %(asctime)s %(name)s - %(message)s",
+            "datefmt": "%H:%M:%S"  # Only shows hours:minutes:seconds
+        }
+    },
+    "handlers": {
+        "default": {
+            "level": "INFO",
+            "formatter": "standard",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "loggers": {
+        "": {
+            "level": os.environ.get("LOG_LEVEL", "INFO"),
+            "handlers": ["default"],
+            "propagate": False,
+        },
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
+
 
 class StickerValidatorTest(unittest.TestCase):
     sv: StickerValidator = StickerValidator()
