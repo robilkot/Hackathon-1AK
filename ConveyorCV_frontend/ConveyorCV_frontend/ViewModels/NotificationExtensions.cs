@@ -1,49 +1,81 @@
-﻿using Avalonia.Notification;
-using System;
+﻿using System;
+using Avalonia.Notification;
 
 namespace ConveyorCV_frontend.ViewModels
 {
     public static class NotificationExtensions
     {
-        public static void Error(this INotificationMessageManager manager, string header, string? body = null)
-        {
-            var msg = manager
-               .CreateMessage()
-               .Accent(System.Drawing.Color.Red.ToHex())
-               .Background(System.Drawing.Color.Red.ToHex())
-               .Foreground("#FFFFFF")
-               .HasHeader(header)
-               .HasBadge("Ошибка")
-               .Animates(true)
-               .Dismiss().WithButton("Скрыть", button => { })
-               .Dismiss().WithDelay(TimeSpan.FromSeconds(10));
+        private static DateTime _lastNotificationTime = DateTime.MinValue;
+        private static string _lastMessage = string.Empty;
 
-            if (body != null)
-            {
-                msg.HasMessage(body);
-            }
-
-            msg.Queue();
-        }
         public static void Success(this INotificationMessageManager manager, string header, string? body = null)
         {
-            var msg = manager
-               .CreateMessage()
-               .Accent("#00cc00")
-               .Background("#00cc00")
-               .Foreground("#FFFFFF")
-               .HasHeader(header)
-               .HasBadge("Успех")
-               .Animates(true)
-               .Dismiss().WithButton("Скрыть", button => { })
-               .Dismiss().WithDelay(TimeSpan.FromSeconds(10));
-
-            if (body != null)
+            if (DateTime.Now - _lastNotificationTime < TimeSpan.FromSeconds(1) && 
+                _lastMessage == $"{header}:{body}")
+                return;
+                
+            _lastNotificationTime = DateTime.Now;
+            _lastMessage = $"{header}:{body}";
+            
+            try
             {
-                msg.HasMessage(body);
-            }
+                var message = manager.CreateMessage();
+                
+                message.Accent("#00cc00")
+                    .Background("#00cc00")
+                    .Foreground("#FFFFFF")
+                    .HasHeader(header)
+                    .HasBadge("Успех")
+                    .Animates(true)
+                    .Dismiss().WithButton("Скрыть", button => { })
+                    .Dismiss().WithDelay(TimeSpan.FromSeconds(3));
 
-            msg.Queue();
+                if (!string.IsNullOrEmpty(body))
+                {
+                    message.HasMessage(body);
+                }
+
+                message.Queue();
+            }
+            catch (Exception) 
+            {
+                // Silently catch notification errors to prevent app crashes
+            }
+        }
+
+        public static void Error(this INotificationMessageManager manager, string header, string? body = null)
+        {
+            if (DateTime.Now - _lastNotificationTime < TimeSpan.FromSeconds(1) && 
+                _lastMessage == $"{header}:{body}")
+                return;
+                
+            _lastNotificationTime = DateTime.Now;
+            _lastMessage = $"{header}:{body}";
+            
+            try
+            {
+                var message = manager.CreateMessage();
+                
+                message  .Accent(System.Drawing.Color.Red.ToHex())
+                    .Background(System.Drawing.Color.Red.ToHex())
+                    .Foreground("#FFFFFF")
+                    .HasHeader(header)
+                    .HasBadge("Ошибка")
+                    .Animates(true)
+                    .Dismiss().WithButton("Скрыть", button => { })
+                    .Dismiss().WithDelay(TimeSpan.FromSeconds(5));
+
+                if (!string.IsNullOrEmpty(body))
+                {
+                    message.HasMessage(body);
+                }
+
+                message.Queue();
+            }
+            catch (Exception) 
+            {
+                // Silently catch notification errors to prevent app crashes
+            }
         }
 
         private static string ToHex(this System.Drawing.Color c)

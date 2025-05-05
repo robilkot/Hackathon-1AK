@@ -20,7 +20,7 @@ from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
 from backend.context_manager import ContextManager
 from backend.db import paginate_validation_logs, delete_validation_log_by_id, delete_all_validation_logs
-from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType
+from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType, IPCMessageType, IPCMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings, Settings, save_settings
 from utils.bg_capture import save_and_set_empty_conveyor_background
@@ -63,10 +63,6 @@ manager = WebSocketManager()
 context_manager = ContextManager()
 
 camera: CameraInterface
-if settings.camera_type == "video":
-    camera = VideoFileCamera(settings.camera.video_path)
-else:
-    camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
 
 detector = ShapeDetector()
 processor = ShapeProcessor()
@@ -93,6 +89,9 @@ validation_logger_process: ValidationResultsLogger
 processes: list
 queues: list
 
+def is_system_running() -> bool:
+    """Check if any system process is currently running"""
+    return any(process.is_alive() for process in processes)
 
 def init_processes():
     global shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process, processes
@@ -108,7 +107,7 @@ def init_processes():
     processor_parent_pipe, processor_child_pipe = Pipe()
     validator_parent_pipe, validator_child_pipe = Pipe()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings, detector_child_pipe)
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, settings.camera_type, detector, settings, detector_child_pipe)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor, processor_child_pipe)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator, validator_child_pipe)
     validation_logger_process = ValidationResultsLogger(results_queue)
@@ -170,15 +169,8 @@ def restart_processes(background_tasks: BackgroundTasks):
     settings = get_settings()
     logger.info("Settings reloaded, recreating all components")
 
-    if settings.camera_type == "video":
-        camera = VideoFileCamera(settings.camera.video_path)
-        logger.info(f"Created VideoFileCamera: {settings.camera.video_path}")
-    else:
-        camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
-        logger.info(f"Created IPCamera: {settings.camera.phone_ip}:{settings.camera.port}")
-
-    detector = ShapeDetector(settings)
-    processor = ShapeProcessor(settings)
+    detector = ShapeDetector()
+    processor = ShapeProcessor()
     validator = StickerValidator()
     logger.info("Created new components")
 
@@ -188,7 +180,7 @@ def restart_processes(background_tasks: BackgroundTasks):
     results_queue = Queue()
     websocket_queue = Queue()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings, detector_child_pipe)
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, settings.camera_type, detector, settings, detector_child_pipe)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor, processor_child_pipe)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator, validator_child_pipe)
     validation_logger_process = ValidationResultsLogger(results_queue)
@@ -272,15 +264,42 @@ def start_processes(background_tasks: BackgroundTasks):
 
 
 def stop_processes():
+    """Stop all running processes using pipes to send STOP messages"""
+    logger.info("Stopping all processes")
+
+    processes_dict = context_manager._ContextManager__processes
+    for name, pipe in processes_dict.items():
+        try:
+            logger.info(f"Sending stop signal to {name}")
+            pipe.send(IPCMessage(IPCMessageType.STOP, name))
+        except Exception as e:
+            logger.error(f"Failed to send stop message to {name}: {str(e)}")
+
     for queue in queues:
         while not queue.empty():
             queue.get()
-
         queue.put(None)
+
+    timeout = 3.0
+    start_time = time.time()
+
+    while is_system_running() and time.time() - start_time < timeout:
+        time.sleep(0.1)
 
     for process in processes:
         if process.is_alive():
+            logger.warning(f"Process {process.name} did not terminate gracefully, forcing termination")
             process.terminate()
+            process.join(timeout=1.0)
+
+    for name, pipe in processes_dict.items():
+        try:
+            logger.info(f"Closing pipe for {name}")
+            pipe.close()
+        except Exception as e:
+            logger.error(f"Error closing pipe for {name}: {str(e)}")
+
+    logger.info("All processes stopped and pipes closed")
 
 
 @app.websocket("/ws")
@@ -313,18 +332,29 @@ async def restart_stream(background_tasks: BackgroundTasks):
 
 @app.get("/sticker/parameters")
 async def get_sticker_parameters():
-    global sticker_validator_process
-    params = sticker_validator_process.get_validator_parameters()
-    return params.to_dict()
+    """Get sticker validator parameters using pipe communication"""
+    if is_system_running():
+        params_dict = context_manager.get_parameters("validator")
+    else:
+        logger.warning("Falling back to direct method call for getting parameters")
+        params = sticker_validator_process.get_validator_parameters()
+        return params.to_dict()
+    return params_dict
 
 
 @app.post("/sticker/parameters")
 async def set_sticker_parameters(params_dict: dict):
-    global sticker_validator_process, validator
+    """Set sticker validator parameters using pipe communication"""
     sticker_params = StickerValidationParams.from_dict(params_dict)
-    sticker_validator_process.set_validator_parameters(sticker_params)
+
     save_sticker_parameters(sticker_params)
-    return {"status": "success", "message": "Sticker parameters updated"}
+    if is_system_running():
+        if context_manager.set_parameters("validator", params_dict):
+            return {"status": "success", "message": "Sticker parameters updated via IPC"}
+    else:
+        logger.warning("Falling back to direct method call for setting parameters")
+        sticker_validator_process.set_validator_parameters(sticker_params)
+        return {"status": "success", "message": "Sticker parameters updated directly"}
 
 
 @app.get("/validation/logs")
@@ -374,9 +404,8 @@ def apply_settings(settings_data: dict, background_tasks: BackgroundTasks):
         new_settings = Settings.from_dict(settings_data)
         logger.info(f"settings updated: {new_settings}")
         save_settings(new_settings)
-        system_running = any(process.is_alive() for process in processes)
 
-        if system_running:
+        if is_system_running():
             result = restart_processes(background_tasks)
             logger.info(f"Settings applied and processes restarted")
             return {"success": True, "message": "Settings applied and processes restarted"}

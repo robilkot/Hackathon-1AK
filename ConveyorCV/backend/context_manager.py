@@ -85,3 +85,67 @@ class ContextManager:
         """Clear all saved contexts"""
         self.__saved_contexts.clear()
         logger.info("All saved contexts cleared")
+
+    def get_parameters(self, process_name: str):
+        """Get parameters from a specific process using pipe communication"""
+        if process_name not in self.__processes:
+            logger.error(f"Process {process_name} not registered")
+            return None
+
+        pipe = self.__processes[process_name]
+
+        try:
+            message = IPCMessage(IPCMessageType.PARAMS, process_name, {"action": "get"})
+            logger.info(f"Requesting parameters from {process_name}")
+            pipe.send(message)
+
+            wait_start = time.time()
+            while not pipe.poll() and time.time() - wait_start < 5:
+                time.sleep(0.05)
+
+            if pipe.poll():
+                response = pipe.recv()
+                if response.message_type == IPCMessageType.PARAMS:
+                    logger.info(f"Received parameters from {process_name}")
+                    return response.content
+                else:
+                    logger.warning(f"Unexpected response type from {process_name}: {response.message_type}")
+            else:
+                logger.warning(f"Timeout waiting for parameters from {process_name}")
+
+        except Exception as e:
+            logger.error(f"Error getting parameters from {process_name}: {str(e)}", exc_info=True)
+
+        return None
+
+    def set_parameters(self, process_name: str, params):
+        """Set parameters for a specific process using pipe communication"""
+        if process_name not in self.__processes:
+            logger.error(f"Process {process_name} not registered")
+            return False
+
+        pipe = self.__processes[process_name]
+
+        try:
+            message = IPCMessage(IPCMessageType.PARAMS, process_name, {"action": "set", "params": params})
+            logger.info(f"Setting parameters for {process_name}")
+            pipe.send(message)
+
+            wait_start = time.time()
+            while not pipe.poll() and time.time() - wait_start < 5:
+                time.sleep(0.05)
+
+            if pipe.poll():
+                response = pipe.recv()
+                if response.message_type == IPCMessageType.PARAMS:
+                    logger.info(f"Parameters set for {process_name}")
+                    return True
+                else:
+                    logger.warning(f"Unexpected response type from {process_name}: {response.message_type}")
+            else:
+                logger.warning(f"Timeout waiting for acknowledgment from {process_name}")
+
+        except Exception as e:
+            logger.error(f"Error setting parameters for {process_name}: {str(e)}", exc_info=True)
+
+        return False

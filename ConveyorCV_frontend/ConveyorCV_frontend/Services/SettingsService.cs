@@ -19,7 +19,10 @@ namespace ConveyorCV_frontend.Services
         public SettingsService(string baseUrl = "localhost:8000")
         {
             _baseUrl = baseUrl;
-            _httpClient = new HttpClient();
+            _httpClient = new HttpClient()
+            {
+                Timeout = TimeSpan.FromSeconds(10)
+            };
             _jsonOptions = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true

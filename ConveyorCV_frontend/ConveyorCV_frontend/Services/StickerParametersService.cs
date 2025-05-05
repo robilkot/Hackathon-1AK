@@ -17,7 +17,10 @@ public class StickerParametersService
     public StickerParametersService(string baseUrl = "localhost:8000")
     {
         _baseUrl = baseUrl;
-        _httpClient = new HttpClient();
+        _httpClient = new HttpClient()
+        {
+            Timeout = TimeSpan.FromSeconds(5)
+        };
         _jsonOptions = new JsonSerializerOptions();
     }
 

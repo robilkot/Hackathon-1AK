@@ -7,6 +7,7 @@ import time
 from dotenv import load_dotenv
 
 from Camera.CameraInterface import CameraInterface
+from backend.settings import get_settings
 
 load_dotenv()
 
@@ -15,10 +16,9 @@ DEFAULT_PORT = 8080
 
 
 class IPCamera(CameraInterface):
-    def __init__(self, ip_address=None, port=None):
-        self.ip_address = ip_address
-        self.port = port
-        self.base_url = f"http://{self.ip_address}:{self.port}"
+    def __init__(self, settings=None):
+        self.settings = settings or get_settings()
+        self.base_url = f"http://{self.settings.camera.phone_ip}:{self.settings.camera.port}"
         self.video_cap = None
         self.is_connected = False
         self.lock = threading.Lock()

@@ -15,6 +15,8 @@ public class MainViewModel : ViewModelBase
     public INotificationMessageManager Manager { get; } = new NotificationMessageManager();
 
     private readonly WebSocketService _webSocketService;
+    private readonly ConveyorPhotoService _conveyorPhotoService;
+    public ReactiveCommand<Unit, Unit> SaveEmptyConveyorPhotoCommand { get; }
 
     private StickerParametersViewModel _stickerParameters;
     public StickerParametersViewModel StickerParameters
@@ -59,6 +61,10 @@ public class MainViewModel : ViewModelBase
         _webSocketService.MessageReceived += _webSocketService_MessageReceived;
         _webSocketService.ErrorOccurred += OnErrorOccurred;
         _webSocketService.ConnectionClosed += _webSocketService_ConnectionClosed;
+        
+        _conveyorPhotoService = new ConveyorPhotoService();
+        _conveyorPhotoService.StatusChanged += message => Manager.Success("Успех", message);
+        _conveyorPhotoService.ErrorOccurred += message => Manager.Error("Ошибка", message);
 
         StickerParameters = new StickerParametersViewModel()
         {
@@ -69,6 +75,10 @@ public class MainViewModel : ViewModelBase
 
         StartStreamCommand = ReactiveCommand.CreateFromTask(StartStreamAsync);
         StopStreamCommand = ReactiveCommand.CreateFromTask(StopStreamAsync);
+        SaveEmptyConveyorPhotoCommand = ReactiveCommand.CreateFromTask(SaveEmptyConveyorPhotoAsync);
+        
+        SaveEmptyConveyorPhotoCommand.ThrownExceptions.Subscribe(ex => 
+            Manager.Error("Ошибка сохранения фона", ex.Message));
     }
 
     private void _webSocketService_ConnectionClosed()
@@ -82,6 +92,7 @@ public class MainViewModel : ViewModelBase
         {
             if (obj.Type == StreamingMessageType.RAW)
             {
+                
                 var bytes = imageContent.ToImageBytes();
 
                 using var stream = new MemoryStream(bytes);
@@ -139,5 +150,30 @@ public class MainViewModel : ViewModelBase
         Debug.WriteLine("Stream exception: ", ex.Message);
 
         Manager.Error("Ошибка соединения", ex.Message);
+    }
+    
+    private async Task SaveEmptyConveyorPhotoAsync()
+    {
+        if (Status != StreamStatus.Running)
+        {
+            Manager.Error("Ошибка", "Трансляция не активна. Запустите трансляцию для сохранения фона.");
+            return;
+        }
+        
+        if (RawImage == null)
+        {
+            Manager.Error("Ошибка", "Нет доступного изображения для сохранения.");
+            return;
+        }
+        
+        string currentImageBase64;
+        using (MemoryStream ms = new MemoryStream())
+        {
+            RawImage.Save(ms);
+            byte[] imageBytes = ms.ToArray();
+            currentImageBase64 = Convert.ToBase64String(imageBytes);
+        }
+        
+        await _conveyorPhotoService.SaveEmptyConveyorPhotoAsync(currentImageBase64);
     }
 }

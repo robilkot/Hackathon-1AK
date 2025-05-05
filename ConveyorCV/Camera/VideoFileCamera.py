@@ -5,17 +5,19 @@ import time
 from dotenv import load_dotenv
 
 from Camera.CameraInterface import CameraInterface
+from backend.settings import get_settings
 
 logger = logging.getLogger(__name__)
 load_dotenv()
 
 class VideoFileCamera(CameraInterface):
-    def __init__(self, video_path=None, fps=None, start_frame=None, start_time=None):
-        self.video_path = video_path
+    def __init__(self, settings=None, start_frame=None, start_time=None):
+        self.settings = settings or get_settings()
+        self.video_path = self.settings.camera.video_path
         self.video_cap = None
         self.is_connected = False
         self._last_frame_time = 0
-        self._video_fps = fps
+        self._video_fps = self.settings.processing.fps
         self._frame_duration = None
         self._total_frames = 0
         self._current_frame = 0

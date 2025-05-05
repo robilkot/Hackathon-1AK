@@ -6,6 +6,8 @@ from multiprocessing import Process, Queue
 from queue import Empty
 
 from Camera.CameraInterface import CameraInterface
+from Camera.IPCamera import IPCamera
+from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator, combined_validation_results
@@ -19,12 +21,12 @@ logger = logging.getLogger(__name__)
 
 # frames -> BW masks of prop
 class ShapeDetectorProcess(Process, ContextManagement):
-    def __init__(self, input_queue: Queue, shape_queue: Queue, websocket_queue: Queue, cam: CameraInterface,
+    def __init__(self, input_queue: Queue, shape_queue: Queue, websocket_queue: Queue, camera_type,
                  shape_detector: ShapeDetector,
                  settings, pipe_connection):
         Process.__init__(self, daemon=True)
         self.detector = shape_detector
-        self.cam = cam
+        self.__camera_type = camera_type
         self.settings = settings
         self.__shape_queue = shape_queue
         self.__ws_queue = websocket_queue
@@ -42,20 +44,26 @@ class ShapeDetectorProcess(Process, ContextManagement):
     def restore_context(self, context: dict):
         """Restore process context from saved state"""
         if "frame_count" in context:
-            self.__frame_count = context["frame_count"]
+            pass
+            #self.__frame_count = context["frame_count"]
 
     def __handle_ipc_message(self, message: IPCMessage):
         if message.message_type == IPCMessageType.GET_CONTEXT:
             context_data = self.get_context()
             response = IPCMessage.create_context_response(self.process_name, context_data)
-            self.__pipe.send(response)  # Use pipe.send instead of queue.put_nowait
+            self.__pipe.send(response)
         elif message.message_type == IPCMessageType.STOP:
             raise InterruptedError("Stop command received")
 
     def run(self):
         logger.info(f"{self.name} starting")
 
-        self.cam.connect()
+        if self.__camera_type == "video":
+            self.__camera = VideoFileCamera(self.settings)
+        else:
+            self.__camera = IPCamera(self.settings)
+
+        self.__camera.connect()
 
         frame_period = 1.0 / self.settings.processing.fps
 
@@ -77,7 +85,7 @@ class ShapeDetectorProcess(Process, ContextManagement):
 
                 start_time = time.time()
 
-                image = self.cam.get_frame()
+                image = self.__camera.get_frame()
                 if image is None:
                     continue
 
@@ -136,8 +144,8 @@ class ShapeProcessorProcess(Process, ContextManagement):
         """Restore process context from saved state"""
         if "objects_processed" in context:
             self.shape_processor.objects_processed = context["objects_processed"]
-        if "last_contour_center_x" in context:
-            self.shape_processor.last_contour_center_x = context["last_contour_center_x"]
+        # if "last_contour_center_x" in context:
+        #     self.shape_processor.last_contour_center_x = context["last_contour_center_x"]
         if "last_detected_at" in context:
             self.shape_processor.last_detected_at = context["last_detected_at"]
 
@@ -216,9 +224,20 @@ class StickerValidatorProcess(Process, ContextManagement):
 
     def __handle_ipc_message(self, message: IPCMessage):
         if message.message_type == IPCMessageType.GET_CONTEXT:
-            context_data = self.get_context()
-            response = IPCMessage.create_context_response(self.process_name, context_data)
-            self.__pipe.send(response)
+            context = self.get_context()
+            self.__pipe.send(IPCMessage.create_context_response("validator", context))
+
+        elif message.message_type == IPCMessageType.PARAMS:
+            if message.content["action"] == "get":
+                params = self.get_validator_parameters()
+                self.__pipe.send(IPCMessage(IPCMessageType.PARAMS, "validator", params.to_dict()))
+
+            elif message.content["action"] == "set":
+                params_dict = message.content["params"]
+                sticker_params = StickerValidationParams.from_dict(params_dict)
+                self.set_validator_parameters(sticker_params)
+                self.__pipe.send(IPCMessage(IPCMessageType.PARAMS, "validator", {"status": "success"}))
+
         elif message.message_type == IPCMessageType.STOP:
             raise InterruptedError("Stop command received")
 
