@@ -56,8 +56,9 @@ namespace ConveyorCV_frontend.ViewModels
             {
                 var message = manager.CreateMessage();
                 
-                message.Accent("#F44336")
-                    .Background("#FFEBEE")
+                message  .Accent(System.Drawing.Color.Red.ToHex())
+                    .Background(System.Drawing.Color.Red.ToHex())
+                    .Foreground("#FFFFFF")
                     .HasHeader(header)
                     .HasBadge("Ошибка")
                     .Animates(true)
