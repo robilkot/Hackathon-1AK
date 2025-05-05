@@ -6,6 +6,8 @@ from multiprocessing import Process, Queue
 from queue import Empty
 
 from Camera.CameraInterface import CameraInterface
+from Camera.IPCamera import IPCamera
+from Camera.VideoFileCamera import VideoFileCamera
 from algorithms.ShapeDetector import ShapeDetector
 from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator, combined_validation_results
@@ -19,12 +21,12 @@ logger = logging.getLogger(__name__)
 
 # frames -> BW masks of prop
 class ShapeDetectorProcess(Process, ContextManagement):
-    def __init__(self, input_queue: Queue, shape_queue: Queue, websocket_queue: Queue, cam: CameraInterface,
+    def __init__(self, input_queue: Queue, shape_queue: Queue, websocket_queue: Queue, camera_type,
                  shape_detector: ShapeDetector,
                  settings, pipe_connection):
         Process.__init__(self, daemon=True)
         self.detector = shape_detector
-        self.cam = cam
+        self.__camera_type = camera_type
         self.settings = settings
         self.__shape_queue = shape_queue
         self.__ws_queue = websocket_queue
@@ -56,7 +58,12 @@ class ShapeDetectorProcess(Process, ContextManagement):
     def run(self):
         logger.info(f"{self.name} starting")
 
-        self.cam.connect()
+        if self.__camera_type == "video":
+            self.__camera = VideoFileCamera(self.settings)
+        else:
+            self.__camera = IPCamera(self.settings)
+
+        self.__camera.connect()
 
         frame_period = 1.0 / self.settings.processing.fps
 
@@ -78,7 +85,7 @@ class ShapeDetectorProcess(Process, ContextManagement):
 
                 start_time = time.time()
 
-                image = self.cam.get_frame()
+                image = self.__camera.get_frame()
                 if image is None:
                     continue
 

@@ -63,10 +63,6 @@ manager = WebSocketManager()
 context_manager = ContextManager()
 
 camera: CameraInterface
-if settings.camera_type == "video":
-    camera = VideoFileCamera()
-else:
-    camera = IPCamera()
 
 detector = ShapeDetector()
 processor = ShapeProcessor()
@@ -111,7 +107,7 @@ def init_processes():
     processor_parent_pipe, processor_child_pipe = Pipe()
     validator_parent_pipe, validator_child_pipe = Pipe()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings, detector_child_pipe)
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, settings.camera_type, detector, settings, detector_child_pipe)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor, processor_child_pipe)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator, validator_child_pipe)
     validation_logger_process = ValidationResultsLogger(results_queue)
@@ -176,13 +172,6 @@ def restart_processes(background_tasks: BackgroundTasks):
     settings = get_settings()
     logger.info("Settings reloaded, recreating all components")
 
-    if settings.camera_type == "video":
-        camera = VideoFileCamera()
-        logger.info(f"Created VideoFileCamera")
-    else:
-        camera = IPCamera()
-        logger.info(f"Created IPCamera")
-
     detector = ShapeDetector()
     processor = ShapeProcessor()
     validator = StickerValidator()
@@ -194,7 +183,7 @@ def restart_processes(background_tasks: BackgroundTasks):
     results_queue = Queue()
     websocket_queue = Queue()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings, detector_child_pipe)
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, settings.camera_type, detector, settings, detector_child_pipe)
     shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor, processor_child_pipe)
     sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator, validator_child_pipe)
     validation_logger_process = ValidationResultsLogger(results_queue)
