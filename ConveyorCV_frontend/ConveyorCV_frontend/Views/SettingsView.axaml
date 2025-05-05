@@ -177,17 +177,6 @@
                         <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,5">
                             <StackPanel>
                                 <TextBlock Text="Пути к файлам" FontWeight="Bold" Margin="0,0,0,10" />
-                                <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="10"
-                                        Margin="0,5">
-                                    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto">
-                                        <TextBlock Grid.Column="0" Text="Фоновое изображение:" Margin="0,0,10,0"
-                                                   VerticalAlignment="Center" />
-                                        <TextBox Grid.Column="1" Text="{Binding BgPhotoPath}"
-                                                 VerticalAlignment="Center" Watermark="Выберите фоновое изображение" />
-                                        <Button Grid.Column="2" Content="Обзор..." VerticalAlignment="Center"
-                                                Command="{Binding SelectBgPhotoPathCommand}" Margin="10,0,0,0" />
-                                    </Grid>
-                                </Border>
                                 <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                       Margin="0,5">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Файл настроек:" Margin="0,0,10,0"
@@ -208,7 +197,7 @@
                                              Text="{Binding StickerParamsFile}" Watermark="Путь к файлу параметров"
                                              Margin="0,0,0,5" />
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Путь к дизайнам:" Margin="0,0,10,0"
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Путь к дизайну стикера:" Margin="0,0,10,0"
                                                VerticalAlignment="Center" />
                                     <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
                                              Text="{Binding StickerDesignPath}" Watermark="Путь к папке с дизайнами"

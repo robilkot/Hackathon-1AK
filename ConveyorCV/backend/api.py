@@ -4,7 +4,7 @@ import logging
 import queue
 import time
 from contextlib import asynccontextmanager
-from multiprocessing import Queue
+from multiprocessing import Queue, Pipe
 from fastapi import Query, APIRouter
 from typing import Optional
 
@@ -23,6 +23,7 @@ from backend.db import paginate_validation_logs, delete_validation_log_by_id, de
 from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings, Settings, save_settings
+from utils.bg_capture import save_and_set_empty_conveyor_background
 from utils.param_persistence import save_sticker_parameters
 from websocket_manager import WebSocketManager
 
@@ -76,6 +77,15 @@ shape_queue: Queue
 processed_shape_queue: Queue
 results_queue: Queue
 websocket_queue: Queue
+ipc_queue: Queue
+
+detector_parent_pipe = None
+detector_child_pipe = None
+processor_parent_pipe = None
+processor_child_pipe = None
+validator_parent_pipe = None
+validator_child_pipe = None
+
 shape_detector_process: ShapeDetectorProcess
 shape_processor_process: ShapeProcessorProcess
 sticker_validator_process: StickerValidatorProcess
@@ -87,18 +97,25 @@ queues: list
 def init_processes():
     global shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process, processes
     global exit_queue, shape_queue, processed_shape_queue, websocket_queue, results_queue, queues
-
+    global detector_parent_pipe, detector_child_pipe, processor_parent_pipe, processor_child_pipe, validator_parent_pipe, validator_child_pipe
     exit_queue = Queue()
     shape_queue = Queue()
     processed_shape_queue = Queue()
     results_queue = Queue()
     websocket_queue = Queue()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings)
-    shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
-    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
-                                                        validator)
+    detector_parent_pipe, detector_child_pipe = Pipe()
+    processor_parent_pipe, processor_child_pipe = Pipe()
+    validator_parent_pipe, validator_child_pipe = Pipe()
+
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings, detector_child_pipe)
+    shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor, processor_child_pipe)
+    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator, validator_child_pipe)
     validation_logger_process = ValidationResultsLogger(results_queue)
+
+    context_manager.register_process("detector", detector_parent_pipe)
+    context_manager.register_process("processor", processor_parent_pipe)
+    context_manager.register_process("validator", validator_parent_pipe)
 
     processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
     queues = [exit_queue, shape_queue, processed_shape_queue, results_queue, websocket_queue]
@@ -109,13 +126,14 @@ def restart_processes(background_tasks: BackgroundTasks):
     global settings, camera, detector, processor, validator, processes
     global shape_queue, processed_shape_queue, results_queue, websocket_queue, exit_queue
     global shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process
+    global detector_parent_pipe, detector_child_pipe, processor_parent_pipe, processor_child_pipe, validator_parent_pipe, validator_child_pipe
     start_time = time.time()
     logger.info("Starting complete system restart - saving queue content and terminating all processes")
 
     context_manager.save_contexts(
         shape_detector_process if 'shape_detector_process' in globals() else None,
         shape_processor_process if 'shape_processor_process' in globals() else None,
-        sticker_validator_process if 'sticker_validator_process' in globals() else None
+        sticker_validator_process if 'sticker_validator_process' in globals() else None,
     )
 
     saved_queue_content = {
@@ -170,16 +188,21 @@ def restart_processes(background_tasks: BackgroundTasks):
     results_queue = Queue()
     websocket_queue = Queue()
 
-    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings)
-    shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor)
-    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue,
-                                                        validator)
+    shape_detector_process = ShapeDetectorProcess(exit_queue, shape_queue, websocket_queue, camera, detector, settings, detector_child_pipe)
+    shape_processor_process = ShapeProcessorProcess(shape_queue, processed_shape_queue, websocket_queue, processor, processor_child_pipe)
+    sticker_validator_process = StickerValidatorProcess(processed_shape_queue, results_queue, websocket_queue, validator, validator_child_pipe)
     validation_logger_process = ValidationResultsLogger(results_queue)
+
+    context_manager.register_process("detector", detector_parent_pipe)
+    context_manager.register_process("processor", processor_parent_pipe)
+    context_manager.register_process("validator", validator_parent_pipe)
+
     logger.info("Created new process instances")
 
     processes = [shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process]
 
     context_manager.restore_contexts(shape_detector_process, shape_processor_process, sticker_validator_process)
+
     logger.info("Restored process contexts")
     
     for name, q in [
@@ -210,6 +233,8 @@ async def stream_images_async():
     logger.info(f"stream_images starting")
     last_time = datetime.datetime.now()
 
+    from utils.env import OS_TYPE
+
     while True:
         try:
             msg: StreamingMessage = websocket_queue.get_nowait()
@@ -232,6 +257,9 @@ async def stream_images_async():
             last_time = current_time
             #logger.info(f'shape: {shape_queue.qsize()}, processed_shape: {processed_shape_queue.qsize()}, results: {results_queue.qsize()}, ws: {websocket_queue.qsize()}')
 
+        if OS_TYPE == "MACOS":
+            await asyncio.sleep(0.016)
+
 
 def start_processes(background_tasks: BackgroundTasks):
     init_processes()
@@ -249,6 +277,10 @@ def stop_processes():
             queue.get()
 
         queue.put(None)
+
+    for process in processes:
+        if process.is_alive():
+            process.terminate()
 
 
 @app.websocket("/ws")
@@ -354,6 +386,32 @@ def apply_settings(settings_data: dict, background_tasks: BackgroundTasks):
     except Exception as e:
         logger.error(f"Failed to apply settings: {str(e)}", exc_info=True)
         return {"success": False, "message": f"Failed to apply settings: {str(e)}"}
+
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, Body
+
+
+@app.post("/set-empty-conveyor")
+def set_empty_conveyor_background(
+        background_tasks: BackgroundTasks,
+        image_data: dict = Body(...)
+):
+    """Set uploaded image as empty conveyor background"""
+    try:
+        image_base64 = image_data.get("image")
+
+        if not image_base64:
+            return {"success": False, "message": "No image data provided"}
+
+        result = save_and_set_empty_conveyor_background(image_base64)
+
+        if result["success"]:
+            restart_processes(background_tasks)
+
+        return result
+    except Exception as e:
+        logger.error(f"Failed to set empty conveyor background: {str(e)}")
+        return {"success": False, "message": f"Error: {str(e)}"}
 
 
 @app.get("/example", response_class=HTMLResponse)
