@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Notification;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
@@ -84,12 +85,23 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _totalRecords, value);
         }
 
+        private ValidationStatisticsDTO? _validationStats;
+
+        public ValidationStatisticsDTO? ValidationStats
+        {
+            get => _validationStats;
+            set => this.RaiseAndSetIfChanged(ref _validationStats, value);
+        }
+
         public ReactiveCommand<Unit, Unit> LoadLogsCommand { get; }
         public ReactiveCommand<Unit, Unit> NextPageCommand { get; }
         public ReactiveCommand<Unit, Unit> PreviousPageCommand { get; }
         public ReactiveCommand<Unit, Unit> FirstPageCommand { get; }
         public ReactiveCommand<Unit, Unit> LastPageCommand { get; }
         public ReactiveCommand<int, Unit> DeleteLogCommand { get; }
+        public ReactiveCommand<Unit, Unit> CloseStatisticsCommand { get; }
+        public ReactiveCommand<Unit, Unit> LoadStatisticsCommand { get; }
+        
 
         public ValidationLogsViewModel()
         {
@@ -109,6 +121,8 @@ namespace ConveyorCV_frontend.ViewModels
             FirstPageCommand = ReactiveCommand.CreateFromTask(FirstPage);
             LastPageCommand = ReactiveCommand.CreateFromTask(LastPage);
             DeleteLogCommand = ReactiveCommand.CreateFromTask<int>(DeleteLog);
+            CloseStatisticsCommand = ReactiveCommand.Create(CloseStatistics);
+            LoadStatisticsCommand = ReactiveCommand.CreateFromTask(LoadStatistics);
 
             StartDate = DateTime.Now - TimeSpan.FromHours(12);
             StartTime = StartDate.TimeOfDay;
@@ -117,6 +131,24 @@ namespace ConveyorCV_frontend.ViewModels
             EndTime = EndDate.TimeOfDay + TimeSpan.FromHours(12);
 
             _ = LoadLogs();
+        }
+
+        private void CloseStatistics()
+        {
+            ValidationStats = null;
+        }
+
+        private async Task LoadStatistics()
+        {
+            DateTimeOffset start = StartDate - StartDate.TimeOfDay + StartTime;
+            DateTimeOffset end = EndDate - EndDate.TimeOfDay + EndTime;
+
+            var response = await _logService.GetStatisticsAsync(start, end);
+
+            if (response != null)
+            {
+                ValidationStats = response;
+            }
         }
 
         private async Task LoadLogs()

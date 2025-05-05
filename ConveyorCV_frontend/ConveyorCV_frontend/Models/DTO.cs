@@ -54,6 +54,14 @@ namespace ConveyorCV_frontend.Models
         int Pages,
         IEnumerable<ValidationLogItemDTO> Logs
     );
+
+    public record ValidationStatisticsDTO(
+        DateTimeOffset StartDate,
+        DateTimeOffset EndDate,
+        int TotalCount,
+        int MissingStickerCount,
+        int IncorrectDesignCount
+        );
     
     public record CameraSettingsDTO(
         string? PhoneIp,

@@ -47,7 +47,6 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="3" />
             <Setter Property="Padding" Value="8" />
-            <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
 
         <Style Selector="Button.delete-button">
@@ -67,7 +66,7 @@
 	<Grid
 		Margin="20,0"
 		MaxWidth="1200"
-		RowDefinitions="Auto,*">
+		RowDefinitions="auto,auto,*">
 
 		<controls:NotificationMessageContainer
 			ZIndex="1"
@@ -78,14 +77,15 @@
 		<Border
 			Grid.Row="0">
             <Grid
-				ColumnDefinitions="auto,auto,auto,auto,auto,auto, *, auto"
+				ColumnDefinitions="auto,auto,auto,auto,auto,auto, *, auto,auto"
 				HorizontalAlignment="Stretch">
                 <TextBlock 
 					Grid.Column="0" 
 					Text="С:" 
 					Margin="5, 0" />
-				
+
 				<CalendarDatePicker
+					Width="110"
 					SelectedDate="{Binding StartDate}"
 					Grid.Column="1"/>
 				<TimePicker
@@ -96,6 +96,7 @@
 				<TextBlock Grid.Column="3" Text="По:" Margin="5, 0" />
 
 				<CalendarDatePicker
+					Width="110"
 					SelectedDate="{Binding EndDate}"
 					Grid.Column="4"/>
 				<TimePicker
@@ -103,19 +104,95 @@
 					ClockIdentifier="24HourClock"
 					SelectedTime="{Binding EndTime}"/>
 
-                <Button Grid.Column="7" Margin="10,0,0,0" Command="{Binding LoadLogsCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <PathIcon
-                            Data="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M6,20H18V12H14.5L14,11.5V10H6V20M12,17.75L9.75,15.5L11.16,14.09L12,14.94L15.34,11.61L16.75,13"
-                            Width="16" Height="16" />
-                        <TextBlock Text="Получить записи" />
-                    </StackPanel>
+				<Button Grid.Column="7" Margin="5,0,0,0" Command="{Binding LoadStatisticsCommand}">
+					<TextBlock Text="Получить статистику" />
+				</Button>
+				
+                <Button Grid.Column="8" Margin="5,0,0,0" Command="{Binding LoadLogsCommand}">
+                    <TextBlock Text="Получить записи" />
                 </Button>
             </Grid>
         </Border>
+
+		<Border
+			IsVisible="{Binding ValidationStats, Converter={x:Static ObjectConverters.IsNotNull}}"
+			Width="500"
+			Margin="5 10 5 5"
+			Classes="card"
+			Grid.Row="1">
+			<StackPanel
+				Spacing="5">
+				<Grid
+					ColumnDefinitions="*, auto">
+					<TextBlock
+						FontSize="20"
+						Grid.Column="0"
+						Text="Статистика за период"/>
+					<Button
+						Grid.Column="1"
+						Command="{Binding CloseStatisticsCommand}">
+				        Закрыть
+			        </Button>
+				</Grid>
+				<Separator/>
+				<Grid
+					ColumnDefinitions="*, auto"
+					RowDefinitions="auto,auto,auto,auto">
+
+					<Grid
+						Grid.Row="0"
+						Grid.ColumnSpan="2"
+						ColumnDefinitions="auto, auto, auto, auto">
+						<TextBlock
+							Grid.Column="0"
+							Text="Период: "/>
+						<TextBlock
+							Grid.Column="1"
+							Text="{Binding ValidationStats.StartDate, StringFormat='dd.MM.yyyy HH:mm:ss'}"/>
+						<TextBlock
+							Grid.Column="2"
+							Text=" - "/>
+						<TextBlock
+							Grid.Column="3"
+							Text="{Binding ValidationStats.EndDate, StringFormat='dd.MM.yyyy HH:mm:ss'}"/>
+					</Grid>
+					
+					<TextBlock
+						Grid.Column="0"
+						Grid.Row="1"
+						Text="Итого аккумуляторов"/>
+					<TextBlock
+						Grid.Column="1"
+						Grid.Row="1"
+						HorizontalAlignment="Center"
+						Text="{Binding ValidationStats.TotalCount}"/>
+
+					<TextBlock
+						Grid.Column="0"
+						Grid.Row="2"
+						Text="Аккумуляторов с неверным макетом"/>
+					<TextBlock
+						Grid.Column="1"
+						Grid.Row="2"
+						HorizontalAlignment="Center"
+						Text="{Binding ValidationStats.IncorrectDesignCount}"/>
+
+					<TextBlock
+						Grid.Column="0"
+						Grid.Row="3"
+						Text="Аккумуляторов без наклейки"/>
+					<TextBlock
+						Grid.Column="1"
+						Grid.Row="3"
+						HorizontalAlignment="Center"
+						Text="{Binding ValidationStats.MissingStickerCount}"/>
+				</Grid>
+			</StackPanel>
+		</Border>
+		
         <!-- Center container for Headers, List and pagination -->
         <Grid
-			Grid.Row="1"
+			Grid.Row="2"
 			HorizontalAlignment="Center"
 			Grid.IsSharedSizeScope="True"
 			RowDefinitions="Auto,*,Auto">
@@ -159,11 +236,11 @@
             <ScrollViewer Grid.Row="1" Margin="5">
                 <ItemsRepeater ItemsSource="{Binding Logs}">
                     <ItemsRepeater.Layout>
-                        <StackLayout Spacing="8" Orientation="Vertical" />
+                        <StackLayout Spacing="2" Orientation="Vertical" />
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate>
-                            <Border Classes="card" Margin="0,0,0,4" Padding="8" HorizontalAlignment="Stretch">
+                            <Border Classes="card" HorizontalAlignment="Stretch">
                                 <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="StatusCol" />

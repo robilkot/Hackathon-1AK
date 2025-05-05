@@ -114,7 +114,8 @@
 						<Button
 							Grid.Column="0"
 							HorizontalAlignment="Stretch"
-							HorizontalContentAlignment="Center">
+							HorizontalContentAlignment="Center"
+							Command="{Binding SaveEmptyConveyorPhotoCommand}">
 							<ToolTip.Tip>
 								Качественное фото конвейера без объектов на нём обеспечивает точное обнаружение аккумуляторов
 							</ToolTip.Tip>

@@ -88,7 +88,9 @@ def get_validation_stats(start_date=None, end_date=None):
         return {
             "TotalCount": total_count,
             "MissingStickerCount": missing_sticker_count,
-            "IncorrectDesignCount": incorrect_design_count
+            "IncorrectDesignCount": incorrect_design_count,
+            "StartDate": start_date,
+            "EndDate": end_date
         }
     finally:
         db.close()
