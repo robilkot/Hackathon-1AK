@@ -93,6 +93,9 @@ validation_logger_process: ValidationResultsLogger
 processes: list
 queues: list
 
+def is_system_running() -> bool:
+    """Check if any system process is currently running"""
+    return any(process.is_alive() for process in processes)
 
 def init_processes():
     global shape_detector_process, shape_processor_process, sticker_validator_process, validation_logger_process, processes
@@ -291,7 +294,7 @@ def stop_processes():
     timeout = 3.0
     start_time = time.time()
 
-    while any(process.is_alive() for process in processes) and time.time() - start_time < timeout:
+    while is_system_running() and time.time() - start_time < timeout:
         time.sleep(0.1)
 
     for process in processes:
@@ -340,18 +343,29 @@ async def restart_stream(background_tasks: BackgroundTasks):
 
 @app.get("/sticker/parameters")
 async def get_sticker_parameters():
-    global sticker_validator_process
-    params = sticker_validator_process.get_validator_parameters()
-    return params.to_dict()
+    """Get sticker validator parameters using pipe communication"""
+    if is_system_running():
+        params_dict = context_manager.get_parameters("validator")
+    else:
+        logger.warning("Falling back to direct method call for getting parameters")
+        params = sticker_validator_process.get_validator_parameters()
+        return params.to_dict()
+    return params_dict
 
 
 @app.post("/sticker/parameters")
 async def set_sticker_parameters(params_dict: dict):
-    global sticker_validator_process, validator
+    """Set sticker validator parameters using pipe communication"""
     sticker_params = StickerValidationParams.from_dict(params_dict)
-    sticker_validator_process.set_validator_parameters(sticker_params)
+
     save_sticker_parameters(sticker_params)
-    return {"status": "success", "message": "Sticker parameters updated"}
+    if is_system_running():
+        if context_manager.set_parameters("validator", params_dict):
+            return {"status": "success", "message": "Sticker parameters updated via IPC"}
+    else:
+        logger.warning("Falling back to direct method call for setting parameters")
+        sticker_validator_process.set_validator_parameters(sticker_params)
+        return {"status": "success", "message": "Sticker parameters updated directly"}
 
 
 @app.get("/validation/logs")
@@ -401,9 +415,8 @@ def apply_settings(settings_data: dict, background_tasks: BackgroundTasks):
         new_settings = Settings.from_dict(settings_data)
         logger.info(f"settings updated: {new_settings}")
         save_settings(new_settings)
-        system_running = any(process.is_alive() for process in processes)
 
-        if system_running:
+        if is_system_running():
             result = restart_processes(background_tasks)
             logger.info(f"Settings applied and processes restarted")
             return {"success": True, "message": "Settings applied and processes restarted"}

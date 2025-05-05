@@ -216,9 +216,20 @@ class StickerValidatorProcess(Process, ContextManagement):
 
     def __handle_ipc_message(self, message: IPCMessage):
         if message.message_type == IPCMessageType.GET_CONTEXT:
-            context_data = self.get_context()
-            response = IPCMessage.create_context_response(self.process_name, context_data)
-            self.__pipe.send(response)
+            context = self.get_context()
+            self.__pipe.send(IPCMessage.create_context_response("validator", context))
+
+        elif message.message_type == IPCMessageType.PARAMS:
+            if message.content["action"] == "get":
+                params = self.get_validator_parameters()
+                self.__pipe.send(IPCMessage(IPCMessageType.PARAMS, "validator", params.to_dict()))
+
+            elif message.content["action"] == "set":
+                params_dict = message.content["params"]
+                sticker_params = StickerValidationParams.from_dict(params_dict)
+                self.set_validator_parameters(sticker_params)
+                self.__pipe.send(IPCMessage(IPCMessageType.PARAMS, "validator", {"status": "success"}))
+
         elif message.message_type == IPCMessageType.STOP:
             raise InterruptedError("Stop command received")
 
