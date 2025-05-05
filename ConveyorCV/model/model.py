@@ -1,4 +1,4 @@
-import abc
+from abc import ABC, abstractmethod
 import base64
 import json
 from dataclasses import dataclass
@@ -198,9 +198,16 @@ class StreamingMessageType(IntEnum):
     PROCESSED = 3
     VALIDATION = 4
 
+class IPCMessageType(IntEnum):
+    CONTEXT = 1
+    PARAMS = 2
+    GET_CONTEXT = 3
+    STOP = 4
 
-class StreamingMessageContent(abc.ABC):
-    @abc.abstractmethod
+
+
+class StreamingMessageContent(ABC):
+    @abstractmethod
     def to_dict(self):
         """Convert to a serializable dictionary format"""
         pass
@@ -295,3 +302,29 @@ class ValidationLog(Base):
             "Pages": (total_count + page_size - 1) // page_size,
             "Logs": logs
         }
+
+class ContextManagement(ABC):
+    @abstractmethod
+    def get_context(self) -> dict:
+        pass
+
+    @abstractmethod
+    def restore_context(self, context: dict):
+        pass
+
+
+# In model/model.py, add these classes:
+
+@dataclass
+class IPCMessage:
+    message_type: IPCMessageType
+    recipient: str  # Process name
+    content: any = None
+
+    @classmethod
+    def create_get_context(cls, recipient):
+        return cls(IPCMessageType.GET_CONTEXT, recipient)
+
+    @classmethod
+    def create_context_response(cls, sender, context_data):
+        return cls(IPCMessageType.CONTEXT, sender, context_data)
