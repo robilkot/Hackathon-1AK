@@ -137,7 +137,7 @@ class StickerValidator:
 
         for i, test in enumerate(current_results):
             assert test.seq_number == self.__last_processed_acc_number, 'Wrong seq_number in combined validation!'
-            # logger.info(f'{test.seq_number}')
+            logger.info(f'{test.seq_number}')
             cv2.imwrite(f'data/{test.seq_number}_{i}.jpg', test.sticker_image)
 
         sticker_matches_design = None

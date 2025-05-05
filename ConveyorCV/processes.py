@@ -42,13 +42,14 @@ class ShapeDetectorProcess(Process, ContextManagement):
     def restore_context(self, context: dict):
         """Restore process context from saved state"""
         if "frame_count" in context:
-            self.__frame_count = context["frame_count"]
+            pass
+            #self.__frame_count = context["frame_count"]
 
     def __handle_ipc_message(self, message: IPCMessage):
         if message.message_type == IPCMessageType.GET_CONTEXT:
             context_data = self.get_context()
             response = IPCMessage.create_context_response(self.process_name, context_data)
-            self.__pipe.send(response)  # Use pipe.send instead of queue.put_nowait
+            self.__pipe.send(response)
         elif message.message_type == IPCMessageType.STOP:
             raise InterruptedError("Stop command received")
 
@@ -136,8 +137,8 @@ class ShapeProcessorProcess(Process, ContextManagement):
         """Restore process context from saved state"""
         if "objects_processed" in context:
             self.shape_processor.objects_processed = context["objects_processed"]
-        if "last_contour_center_x" in context:
-            self.shape_processor.last_contour_center_x = context["last_contour_center_x"]
+        # if "last_contour_center_x" in context:
+        #     self.shape_processor.last_contour_center_x = context["last_contour_center_x"]
         if "last_detected_at" in context:
             self.shape_processor.last_detected_at = context["last_detected_at"]
 
