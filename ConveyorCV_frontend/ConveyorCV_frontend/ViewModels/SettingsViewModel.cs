@@ -155,9 +155,6 @@ namespace ConveyorCV_frontend.ViewModels
         // Commands
         public ReactiveCommand<Unit, Unit> LoadSettingsCommand { get; }
         public ReactiveCommand<Unit, Unit> SaveSettingsCommand { get; }
-        public ReactiveCommand<Unit, Unit> SelectVideoPathCommand { get; }
-        public ReactiveCommand<Unit, Unit> SelectBgPhotoPathCommand { get; }
-        public ReactiveCommand<Unit, Unit> SelectSettingsFilePathCommand { get; }
 
         public SettingsViewModel()
         {
@@ -167,9 +164,9 @@ namespace ConveyorCV_frontend.ViewModels
 
             LoadSettingsCommand = ReactiveCommand.CreateFromTask(LoadSettings);
             SaveSettingsCommand = ReactiveCommand.CreateFromTask(SaveSettings);
-            SelectVideoPathCommand = ReactiveCommand.CreateFromTask(SelectVideoPath);
-            SelectBgPhotoPathCommand = ReactiveCommand.CreateFromTask(SelectBgPhotoPath);
-            SelectSettingsFilePathCommand = ReactiveCommand.CreateFromTask(SelectSettingsFilePath);
+            
+            LoadSettingsCommand.ThrownExceptions.Subscribe(ex => Manager.Error("Ошибка загрузки", ex.Message));
+            SaveSettingsCommand.ThrownExceptions.Subscribe(ex => Manager.Error("Ошибка сохранения", ex.Message));
             
             // Load settings when view model is created
             _ = LoadSettings();
@@ -250,32 +247,6 @@ namespace ConveyorCV_frontend.ViewModels
             );
 
             await _settingsService.ApplySettingsAsync(settings);
-        }
-
-        private async Task SelectVideoPath()
-        {
-            var result = await DialogService.ShowOpenFileDialog("Выбор видео", "");
-            if (!string.IsNullOrEmpty(result))
-            {
-                VideoPath = result;
-            }
-        }
-
-        private async Task SelectBgPhotoPath()
-        {
-            var result = await DialogService.ShowOpenFileDialog("Выбор фона", "");
-            if (!string.IsNullOrEmpty(result))
-            {
-                BgPhotoPath = result;
-            }
-        }
-        private async Task SelectSettingsFilePath()
-        {
-            var result = await DialogService.ShowOpenFileDialog("Выбор файла настроек", "");
-            if (!string.IsNullOrEmpty(result))
-            {
-                SettingsFilePath = result;
-            }
         }
     }
 }

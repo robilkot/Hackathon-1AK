@@ -20,7 +20,7 @@ from algorithms.ShapeProcessor import ShapeProcessor
 from algorithms.StickerValidator import StickerValidator
 from backend.context_manager import ContextManager
 from backend.db import paginate_validation_logs, delete_validation_log_by_id, delete_all_validation_logs
-from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType
+from model.model import StickerValidationParams, StreamingMessage, StreamingMessageType, IPCMessageType, IPCMessage
 from processes import ShapeDetectorProcess, ShapeProcessorProcess, StickerValidatorProcess, ValidationResultsLogger
 from settings import get_settings, Settings, save_settings
 from utils.bg_capture import save_and_set_empty_conveyor_background
@@ -272,15 +272,42 @@ def start_processes(background_tasks: BackgroundTasks):
 
 
 def stop_processes():
+    """Stop all running processes using pipes to send STOP messages"""
+    logger.info("Stopping all processes")
+
+    processes_dict = context_manager._ContextManager__processes
+    for name, pipe in processes_dict.items():
+        try:
+            logger.info(f"Sending stop signal to {name}")
+            pipe.send(IPCMessage(IPCMessageType.STOP, name))
+        except Exception as e:
+            logger.error(f"Failed to send stop message to {name}: {str(e)}")
+
     for queue in queues:
         while not queue.empty():
             queue.get()
-
         queue.put(None)
+
+    timeout = 3.0
+    start_time = time.time()
+
+    while any(process.is_alive() for process in processes) and time.time() - start_time < timeout:
+        time.sleep(0.1)
 
     for process in processes:
         if process.is_alive():
+            logger.warning(f"Process {process.name} did not terminate gracefully, forcing termination")
             process.terminate()
+            process.join(timeout=1.0)
+
+    for name, pipe in processes_dict.items():
+        try:
+            logger.info(f"Closing pipe for {name}")
+            pipe.close()
+        except Exception as e:
+            logger.error(f"Error closing pipe for {name}: {str(e)}")
+
+    logger.info("All processes stopped and pipes closed")
 
 
 @app.websocket("/ws")
