@@ -64,9 +64,9 @@ context_manager = ContextManager()
 
 camera: CameraInterface
 if settings.camera_type == "video":
-    camera = VideoFileCamera(settings.camera.video_path)
+    camera = VideoFileCamera()
 else:
-    camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
+    camera = IPCamera()
 
 detector = ShapeDetector()
 processor = ShapeProcessor()
@@ -177,11 +177,11 @@ def restart_processes(background_tasks: BackgroundTasks):
     logger.info("Settings reloaded, recreating all components")
 
     if settings.camera_type == "video":
-        camera = VideoFileCamera(settings.camera.video_path)
-        logger.info(f"Created VideoFileCamera: {settings.camera.video_path}")
+        camera = VideoFileCamera()
+        logger.info(f"Created VideoFileCamera")
     else:
-        camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
-        logger.info(f"Created IPCamera: {settings.camera.phone_ip}:{settings.camera.port}")
+        camera = IPCamera()
+        logger.info(f"Created IPCamera")
 
     detector = ShapeDetector()
     processor = ShapeProcessor()
