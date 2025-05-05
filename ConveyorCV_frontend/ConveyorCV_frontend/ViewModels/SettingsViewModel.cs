@@ -196,6 +196,7 @@ namespace ConveyorCV_frontend.ViewModels
                 {
                     DownscaleWidth = settings.Processing.DownscaleWidth ?? 1280;
                     DownscaleHeight = settings.Processing.DownscaleHeight ?? 720;
+                    Fps = settings.Processing.Fps ?? 20;
                 }
 
                 if (settings.Validation != null)

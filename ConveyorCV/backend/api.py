@@ -170,6 +170,9 @@ def restart_processes(background_tasks: BackgroundTasks):
         else:
             logger.info(f"Process {process.name} was not running")
 
+    from settings import get_settings
+    get_settings.cache_clear()
+
     settings = get_settings()
     logger.info("Settings reloaded, recreating all components")
 
@@ -180,8 +183,8 @@ def restart_processes(background_tasks: BackgroundTasks):
         camera = IPCamera(settings.camera.phone_ip, settings.camera.port)
         logger.info(f"Created IPCamera: {settings.camera.phone_ip}:{settings.camera.port}")
 
-    detector = ShapeDetector(settings)
-    processor = ShapeProcessor(settings)
+    detector = ShapeDetector()
+    processor = ShapeProcessor()
     validator = StickerValidator()
     logger.info("Created new components")
 
