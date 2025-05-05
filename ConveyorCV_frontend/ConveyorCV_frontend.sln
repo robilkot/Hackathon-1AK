@@ -9,8 +9,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConveyorCV_frontend.Desktop
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConveyorCV_frontend.Browser", "ConveyorCV_frontend.Browser\ConveyorCV_frontend.Browser.csproj", "{B84C99DC-D0C7-488A-BCEC-AF443E91F565}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConveyorCV_frontend.Android", "ConveyorCV_frontend.Android\ConveyorCV_frontend.Android.csproj", "{878A3953-87D7-411C-9CDF-46A6FC56F004}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
