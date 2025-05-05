@@ -1,8 +1,8 @@
-# Add to utils/bg_capture.py
+
 import base64
-import datetime
 import logging
 import os
+from datetime import datetime
 
 import cv2
 import numpy as np
