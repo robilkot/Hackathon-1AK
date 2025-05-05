@@ -17,7 +17,10 @@ namespace ConveyorCV_frontend.Services
         public ConveyorPhotoService(string baseUrl = "localhost:8000")
         {
             _baseUrl = baseUrl;
-            _httpClient = new HttpClient();
+            _httpClient = new HttpClient()
+            {
+                Timeout = TimeSpan.FromSeconds(7)
+            };
         }
         
         public async Task<bool> SaveEmptyConveyorPhotoAsync(string imageBase64)
