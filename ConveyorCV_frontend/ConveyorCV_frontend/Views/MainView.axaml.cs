@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 
 namespace ConveyorCV_frontend.Views;
 
@@ -10,6 +11,19 @@ public partial class MainView : UserControl
     public MainView()
     {
         InitializeComponent();
+
+        AttachedToVisualTree += (_, e) =>
+        {
+            if (App.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop 
+            && desktop.MainWindow is not null)
+            {
+                desktop.MainWindow.Closed += (_, e) =>
+                {
+                    _validationLogsWindow?.Close();
+                    _settingsWindow?.Close();
+                };
+            }
+        };
     }
 
     private void MenuItem_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

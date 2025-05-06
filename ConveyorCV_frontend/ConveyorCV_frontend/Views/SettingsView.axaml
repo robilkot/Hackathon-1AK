@@ -7,7 +7,7 @@
     xmlns:converters="clr-namespace:ConveyorCV_frontend.Converters"
     xmlns:avalonia="clr-namespace:Avalonia.Notification;assembly=Avalonia.Notification"
     xmlns:controls="clr-namespace:Avalonia.Notification.Controls;assembly=Notification.Avalonia"
-    mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="720"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
     x:Class="ConveyorCV_frontend.Views.SettingsView"
     x:DataType="vm:SettingsViewModel">
 
@@ -21,9 +21,9 @@
         <controls:NotificationMessageContainer
             Grid.RowSpan="3"
             Manager="{Binding Manager}"
-
-            Margin="0,0,20,0"
-            ZIndex="1000" />
+			Margin="0 -20 0 0"
+			MaxWidth="450"
+            ZIndex="2" />
 
         <TabControl Grid.Row="1">
             <TabItem Header="Камера">
