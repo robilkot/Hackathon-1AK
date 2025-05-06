@@ -251,6 +251,7 @@ class ValidationLog(Base):
     timestamp = Column(DateTime, index=True)
     seq_number = Column(Integer)
     sticker_present = Column(Boolean)
+    acc_image = Column(String, nullable=True) #b64 encoded image
     sticker_matches_design = Column(Boolean, nullable=True)
     sticker_position_x = Column(Float, nullable=True)
     sticker_position_y = Column(Float, nullable=True)
@@ -266,6 +267,7 @@ class ValidationLog(Base):
             "SeqNumber": self.seq_number,
             "StickerPresent": self.sticker_present,
             "StickerMatchesDesign": self.sticker_matches_design,
+            "Image": self.acc_image,
             "StickerPosition": {
                 "x": self.sticker_position_x,
                 "y": self.sticker_position_y

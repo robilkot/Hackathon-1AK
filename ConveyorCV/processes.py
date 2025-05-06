@@ -300,12 +300,20 @@ class ValidationResultsLogger(Process):
 
                 if validation_results is not None:
                     from model.model import ValidationLog
+                    import cv2
+                    import base64
+
+                    acc_image_base64 = None
+                    if (validation_results.sticker_present is False or validation_results.sticker_matches_design is False) and validation_results.sticker_image is not None:
+                        _, encoded_img = cv2.imencode('.png', validation_results.sticker_image)
+                        acc_image_base64 = base64.b64encode(encoded_img.tobytes()).decode('utf-8')
 
                     validation_log = ValidationLog(
                         timestamp=validation_results.detected_at,
                         seq_number=validation_results.seq_number,
                         sticker_present=validation_results.sticker_present,
                         sticker_matches_design=validation_results.sticker_matches_design,
+                        acc_image=acc_image_base64,
                         sticker_position_x=validation_results.sticker_position[
                             0] if validation_results.sticker_position else None,
                         sticker_position_y=validation_results.sticker_position[
