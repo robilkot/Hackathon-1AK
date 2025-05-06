@@ -190,18 +190,6 @@
                                     <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
                                              Text="{Binding StickerParamsFile}" Watermark="Путь к файлу параметров"
                                              Margin="0,0,0,5" />
-
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Путь к дизайну стикера:" Margin="0,0,10,0"
-                                               VerticalAlignment="Center" />
-                                    <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
-                                             Text="{Binding StickerDesignPath}" Watermark="Путь к папке с дизайнами"
-                                             Margin="0,0,0,5" />
-
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Выходная папка:" Margin="0,0,10,0"
-                                               VerticalAlignment="Center" />
-                                    <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
-                                             Text="{Binding StickerOutputPath}"
-                                             Watermark="Путь для сохранения результатов" Margin="0,0,0,5" />
                                 </Grid>
                             </StackPanel>
                         </Border>
