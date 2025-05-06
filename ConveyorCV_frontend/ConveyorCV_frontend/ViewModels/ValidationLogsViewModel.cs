@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Notification;
 using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
+using ConveyorCV_frontend.Views;
 using DynamicData;
 using ReactiveUI;
 using System;
@@ -101,7 +102,8 @@ namespace ConveyorCV_frontend.ViewModels
         public ReactiveCommand<int, Unit> DeleteLogCommand { get; }
         public ReactiveCommand<Unit, Unit> CloseStatisticsCommand { get; }
         public ReactiveCommand<Unit, Unit> LoadStatisticsCommand { get; }
-        
+        public ReactiveCommand<ValidationLogItemDTO, Unit> ViewResultCommand { get; }
+
 
         public ValidationLogsViewModel()
         {
@@ -123,6 +125,7 @@ namespace ConveyorCV_frontend.ViewModels
             DeleteLogCommand = ReactiveCommand.CreateFromTask<int>(DeleteLog);
             CloseStatisticsCommand = ReactiveCommand.Create(CloseStatistics);
             LoadStatisticsCommand = ReactiveCommand.CreateFromTask(LoadStatistics);
+            ViewResultCommand = ReactiveCommand.CreateFromTask<ValidationLogItemDTO>(ViewResult);
 
             StartDate = DateTime.Now - TimeSpan.FromHours(12);
             StartTime = StartDate.TimeOfDay;
@@ -213,6 +216,28 @@ namespace ConveyorCV_frontend.ViewModels
                     await LoadLogs();
             }
         }
+
+        private async Task ViewResult(ValidationLogItemDTO log)
+        {
+            var vm = new StickerValidationResultViewModel();
+            var defaultImg = "R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+            vm.LastResult = new(log.Image ?? defaultImg, 
+                log.Timestamp, 
+                log.SeqNumber, 
+                log.StickerPresent, 
+                log.StickerMatchesDesign, 
+                log.StickerSize, 
+                log.StickerPosition, 
+                log.StickerRotation);
+
+            var _validationLogsWindow = new StickerValidationResultWindow
+            {
+                DataContext = vm
+            };
+            _validationLogsWindow.Show();
+            _validationLogsWindow.Activate();
+        }
+
         public void Dispose()
         {
             _disposables.Dispose();

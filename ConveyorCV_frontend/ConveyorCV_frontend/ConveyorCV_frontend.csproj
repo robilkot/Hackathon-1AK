@@ -29,6 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Views\StickerValidationResultWindow.axaml.cs">
+      <DependentUpon>StickerValidationResultWindow.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\SettingsWindow.axaml.cs">
       <DependentUpon>SettingsWindow.axaml</DependentUpon>
     </Compile>

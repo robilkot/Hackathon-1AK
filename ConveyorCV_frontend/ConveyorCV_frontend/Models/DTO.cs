@@ -35,6 +35,7 @@ namespace ConveyorCV_frontend.Models
     //maybe use default StickerValidationResultDTO, create new for reducing dependencies
     public record ValidationLogItemDTO(
         int Id,
+        string? Image, // b64 encoded
         DateTimeOffset Timestamp,
         int SeqNumber,
         bool StickerPresent,

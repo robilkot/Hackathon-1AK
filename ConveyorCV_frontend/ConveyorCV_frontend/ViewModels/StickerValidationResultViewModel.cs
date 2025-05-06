@@ -4,6 +4,7 @@ using ConveyorCV_frontend.Models;
 using ConveyorCV_frontend.Services;
 using ReactiveUI;
 using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace ConveyorCV_frontend.ViewModels
@@ -37,8 +38,8 @@ namespace ConveyorCV_frontend.ViewModels
             }
         }
 
-        private Bitmap _image;
-        public Bitmap Image
+        private Bitmap? _image;
+        public Bitmap? Image
         {
             get => _image;
             set => this.RaiseAndSetIfChanged(ref _image, value);
@@ -93,9 +94,20 @@ namespace ConveyorCV_frontend.ViewModels
             set => this.RaiseAndSetIfChanged(ref _timestamp, value);
         }
 
-        public StickerValidationResultViewModel(WebSocketService webSocketService)
+        public StickerValidationResultViewModel() : this(null) { }
+
+        public StickerValidationResultViewModel(WebSocketService? webSocketService = null)
         {
-            webSocketService.MessageReceived += WebSocketService_MessageReceived;
+            if(webSocketService is not null)
+            {
+                webSocketService.MessageReceived += WebSocketService_MessageReceived;
+            }
+
+            if (Design.IsDesignMode)
+            {
+                LastResult = new("", new(), 0, true, false, new(), new(), 5);
+                Timestamp = DateTimeOffset.UtcNow;
+            }
         }
 
         private void WebSocketService_MessageReceived(StreamingMessage obj)
@@ -104,17 +116,6 @@ namespace ConveyorCV_frontend.ViewModels
                 return;
 
             LastResult = validationMessage.ValidationResult;
-        }
-
-        public StickerValidationResultViewModel()
-        {
-            if (!Design.IsDesignMode)
-            {
-                throw new NotSupportedException();
-            }
-
-            LastResult = new("", new(), 0, true, false, new(), new(), 5);
-            Timestamp = DateTimeOffset.UtcNow;
         }
     }
 }

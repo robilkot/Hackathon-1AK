@@ -287,16 +287,29 @@
                                                IsVisible="{Binding StickerPresent}"
                                                Text="{Binding StickerRotation, StringFormat={}{0:F0}°}"
                                                Margin="0,0,15,0" HorizontalAlignment="Center" />
-                                    <Button Grid.Column="9"
+									<StackPanel
+										Grid.Column="9"
+										Orientation="Horizontal"
+										Spacing="5"
+										HorizontalAlignment="Right">
+											<!--IsVisible="{Binding}"-->
+										<Button
+											IsVisible="{Binding Image, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                            Command="{Binding DataContext.ViewResultCommand, RelativeSource={RelativeSource AncestorType=ItemsRepeater}}"
+                                            CommandParameter="{Binding .}"
+                                            Classes="delete-button">
+											Просмотр результата
+										</Button>
+										<Button
                                             Command="{Binding DataContext.DeleteLogCommand, RelativeSource={RelativeSource AncestorType=ItemsRepeater}}"
                                             CommandParameter="{Binding Id}"
-                                            Margin="15,0,0,0"
                                             Classes="delete-button"
-                                            ToolTip.Tip="Удалить запись" HorizontalAlignment="Center">
-                                        <PathIcon
-                                            Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"
-                                            Width="14" Height="14" />
-                                    </Button>
+                                            ToolTip.Tip="Удалить запись">
+                                            <PathIcon
+                                                Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"
+                                                Width="14" Height="14" />
+                                        </Button>
+									</StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>
