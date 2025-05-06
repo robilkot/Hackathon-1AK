@@ -173,7 +173,7 @@
 					<TextBlock
 						Classes="secondary">
 						<Run Text="Время обнаружения: "/>
-						<Run Text="{Binding Timestamp, StringFormat={}{0:HH.mm.ss}}"/>
+						<Run Text="{Binding Timestamp, StringFormat='HH:mm:ss'}"/>
 					</TextBlock>
 				</StackPanel>
 			</Expander>
